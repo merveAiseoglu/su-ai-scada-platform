@@ -125,7 +125,17 @@ async def lifespan(app: FastAPI):
 
     await asyncio.to_thread(preload_rag_model)
 
+    from app.mqtt_client import get_mqtt_client
+
+    app.state.mqtt_client = get_mqtt_client()
+    if app.state.mqtt_client:
+        app.state.mqtt_client.loop_start()
+
     yield
+
+    if getattr(app.state, "mqtt_client", None):
+        app.state.mqtt_client.loop_stop()
+        app.state.mqtt_client.disconnect()
 
 
 # ---------------------------------------------------------------------------
@@ -598,11 +608,13 @@ async def sim_durum(current_user: models.Kullanici = Depends(require_role(["yone
     }
 
 
-@app.post("/api/sim/tetikle", response_model=schemas.SuOlcumuResponse, tags=["Simülasyon"])
+@app.post("/api/sim/tetikle", tags=["Simülasyon"])
 async def sim_tetikle(
+    request: Request,
     background_tasks: BackgroundTasks,
     istasyon_id: int = 1,
     mod: str = "karisik",
+    use_mqtt: bool = False,
     db: AsyncSession = Depends(get_db),
     current_user: models.Kullanici = Depends(require_role(["yonetici"])),
 ):
@@ -617,6 +629,32 @@ async def sim_tetikle(
         raise HTTPException(status_code=404, detail=f"İstasyon (id={istasyon_id}) bulunamadı")
 
     veriler = _uret_olcum_verileri(mod)
+
+    if use_mqtt:
+        mqtt_client = getattr(request.app.state, "mqtt_client", None)
+        if not mqtt_client:
+            raise HTTPException(status_code=500, detail="MQTT istemcisi bağlı değil")
+
+        payload = {
+            "station_id": istasyon_id,
+            "pH": veriler["ph"],
+            "chlorine": veriler["serbest_klor"],
+            "turbidity": veriler["bulaniklik"],
+            "conductivity": veriler["iletkenlik"],
+            "temperature": veriler["sicaklik"],
+            "timestamp": _dt.datetime.now(_dt.timezone.utc).isoformat(),
+        }
+        import json
+
+        topic = f"su-ai/stations/{istasyon_id}/measurements"
+        mqtt_client.publish(topic, json.dumps(payload))
+
+        _sim_durum["toplam"] += 1
+        _sim_durum["son_tetikle"] = _dt.datetime.now(_dt.timezone.utc).isoformat()
+        _sim_durum["son_istasyon_id"] = istasyon_id
+
+        return {"mesaj": f"Veri MQTT ({topic}) üzerinden gönderildi", "payload": payload}
+
     db_olcum = models.SuOlcumu(
         istasyon_id=istasyon_id, personel_notu=f"[SIM:{mod.upper()}] Otomatik simülasyon ölçümü", **veriler
     )

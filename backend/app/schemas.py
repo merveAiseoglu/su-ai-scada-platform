@@ -180,3 +180,18 @@ class LLMOpsDashboardResponse(BaseModel):
     by_prompt_version: list[PromptVersionStat]
     by_provider: list[ProviderStat]
     lowest_scores: list[LowScoreRecommendation]
+
+
+# ---------------------------------------------------------------------------
+# IoT MQTT Şemaları
+# ---------------------------------------------------------------------------
+
+
+class MqttPayload(BaseModel):
+    station_id: int
+    pH: Optional[float] = Field(None, ge=0.0, le=14.0)
+    chlorine: Optional[float] = Field(None, ge=0.0)
+    turbidity: Optional[float] = Field(None, ge=0.0)
+    conductivity: Optional[float] = Field(None, ge=0.0)
+    temperature: Optional[float] = Field(None, ge=-20.0, le=60.0)
+    timestamp: Optional[datetime] = None

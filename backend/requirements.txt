@@ -25,6 +25,7 @@ typing-inspection==0.4.2
 typing_extensions==4.16.0
 uvicorn==0.52.1
 asyncpg
+
 chromadb
 sentence-transformers
 
@@ -33,3 +34,4 @@ passlib[bcrypt]
 bcrypt==4.0.1
 python-multipart
 slowapi==0.1.9
+paho-mqtt==2.1.0
