@@ -361,6 +361,48 @@ async def get_llmops_dashboard(
 
 
 # ---------------------------------------------------------------------------
+# Kullanıcı Ayarları Endpoint'leri
+# ---------------------------------------------------------------------------
+
+
+@app.post("/admin/users/{user_id}/push-token", tags=["Kullanıcı Ayarları"])
+async def update_push_token(
+    user_id: int,
+    body: schemas.PushTokenUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: models.Kullanici = Depends(require_role(["yonetici"])),
+):
+    result = await db.execute(select(models.Kullanici).filter(models.Kullanici.id == user_id))
+    user = result.scalars().first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Kullanıcı bulunamadı")
+    user.push_token = body.push_token
+    await db.commit()
+    return {"mesaj": "Push token güncellendi"}
+
+
+@app.patch("/admin/users/{user_id}/notification-preferences", tags=["Kullanıcı Ayarları"])
+async def update_notification_preferences(
+    user_id: int,
+    body: schemas.NotificationPreferencesUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: models.Kullanici = Depends(require_role(["yonetici"])),
+):
+    result = await db.execute(select(models.Kullanici).filter(models.Kullanici.id == user_id))
+    user = result.scalars().first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Kullanıcı bulunamadı")
+
+    if body.notify_push is not None:
+        user.notify_push = body.notify_push
+    if body.notify_email is not None:
+        user.notify_email = body.notify_email
+
+    await db.commit()
+    return {"mesaj": "Bildirim tercihleri güncellendi"}
+
+
+# ---------------------------------------------------------------------------
 # İstasyon Endpoint'leri
 # ---------------------------------------------------------------------------
 
@@ -518,6 +560,12 @@ async def create_olcum(
     await db.commit()
     await db.refresh(db_olcum)
 
+    # Alert Notifications
+    if db_olcum.risk_seviyesi == "KRİTİK":
+        from app.notification_service import dispatch_critical_alerts
+
+        background_tasks.add_task(dispatch_critical_alerts, db_olcum.id, SessionLocal)
+
     # 4. LLM görevini arka plana at — SessionLocal factory geçilir (thread-safe)
     background_tasks.add_task(arka_planda_analiz_et, db_olcum.id, SessionLocal)
 
@@ -668,6 +716,12 @@ async def sim_tetikle(
     db_olcum.risk_seviyesi = kural_motoru_sonucu.get("en_yuksek_risk_seviyesi", "NORMAL")
     await db.commit()
     await db.refresh(db_olcum)
+
+    # Alert Notifications
+    if db_olcum.risk_seviyesi == "KRİTİK":
+        from app.notification_service import dispatch_critical_alerts
+
+        background_tasks.add_task(dispatch_critical_alerts, db_olcum.id, SessionLocal)
 
     # LLM arka plana
     background_tasks.add_task(arka_planda_analiz_et, db_olcum.id, SessionLocal)

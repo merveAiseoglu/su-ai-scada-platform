@@ -195,3 +195,17 @@ class MqttPayload(BaseModel):
     conductivity: Optional[float] = Field(None, ge=0.0)
     temperature: Optional[float] = Field(None, ge=-20.0, le=60.0)
     timestamp: Optional[datetime] = None
+
+
+# ---------------------------------------------------------------------------
+# Bildirim (Notification) Şemaları
+# ---------------------------------------------------------------------------
+
+
+class PushTokenUpdate(BaseModel):
+    push_token: str
+
+
+class NotificationPreferencesUpdate(BaseModel):
+    notify_push: Optional[bool] = None
+    notify_email: Optional[bool] = None

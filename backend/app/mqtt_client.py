@@ -56,6 +56,12 @@ async def process_mqtt_payload(payload: MqttPayload):
 
         olcum_id = db_olcum.id
 
+        # Alert Notifications
+        if db_olcum.risk_seviyesi == "KRİTİK":
+            from app.notification_service import dispatch_critical_alerts
+
+            asyncio.create_task(dispatch_critical_alerts(olcum_id, SessionLocal))
+
     # 4. Trigger LLM Analysis Background Task
     # We await it here since we are inside a dedicated asyncio.run() loop for this message.
     # We close the previous db session so arka_planda_analiz_et can open its own cleanly.

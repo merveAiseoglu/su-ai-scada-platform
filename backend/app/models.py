@@ -90,6 +90,16 @@ class Kullanici(Base):
     rol = Column(String, nullable=False, default="saha_personeli")  # 'saha_personeli' or 'yonetici'
     aktif_mi = Column(Boolean, default=True)
 
+    # Notifications
+    push_token = Column(String, nullable=True)
+    notify_push = Column(Boolean, default=True)
+    notify_email = Column(Boolean, default=True)
+
+    # TODO(Migration): For existing databases without Alembic, run the following SQL manually:
+    # ALTER TABLE kullanicilar ADD COLUMN push_token VARCHAR;
+    # ALTER TABLE kullanicilar ADD COLUMN notify_push BOOLEAN DEFAULT TRUE;
+    # ALTER TABLE kullanicilar ADD COLUMN notify_email BOOLEAN DEFAULT TRUE;
+
 
 class AuditLog(Base):
     __tablename__ = "audit_logs"
