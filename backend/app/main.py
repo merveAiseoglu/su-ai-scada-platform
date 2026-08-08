@@ -1,18 +1,33 @@
 # app/main.py  —  Su-AI API v4.0  (Asenkron LLM + BackgroundTasks)
 import datetime as _dt
 import random
+import os
 from contextlib import asynccontextmanager
-from datetime import timedelta
 from typing import List
+from datetime import timedelta
+import jwt
 
-from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
 from app import models, schemas
-from app.auth import ACCESS_TOKEN_EXPIRE_MINUTES, create_access_token, log_audit, require_role, verify_password
+from app.auth import (
+    ACCESS_TOKEN_EXPIRE_MINUTES,
+    create_access_token,
+    create_refresh_token,
+    log_audit,
+    require_role,
+    verify_password,
+    SECRET_KEY,
+    ALGORITHM,
+    oauth2_scheme,
+)
 from app.database import DEV_DROP_RECREATE, SessionLocal, engine, get_db
 from app.engine import hesapla_anomali_durumu
 from app.llm_service import arka_planda_analiz_et
@@ -123,13 +138,28 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+limiter = Limiter(key_func=get_remote_address, default_limits=[os.getenv("GLOBAL_RATE_LIMIT", "100/minute")])
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "").split(",") if os.getenv("ALLOWED_ORIGINS") else ["*"]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    return response
+
 
 # ---------------------------------------------------------------------------
 # Yardımcı fonksiyonlar
@@ -185,7 +215,10 @@ async def read_root():
 
 
 @app.post("/token", response_model=schemas.Token, tags=["Kimlik Doğrulama"])
-async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db: AsyncSession = Depends(get_db)):
+@limiter.limit(os.getenv("AUTH_RATE_LIMIT", "5/minute"))
+async def login_for_access_token(
+    request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db: AsyncSession = Depends(get_db)
+):
     result = await db.execute(select(models.Kullanici).filter(models.Kullanici.email == form_data.username))
     user = result.scalars().first()
 
@@ -195,10 +228,58 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(data={"sub": user.email, "rol": user.rol}, expires_delta=access_token_expires)
 
+    refresh_token = create_refresh_token(data={"sub": user.email, "rol": user.rol})
+
     # Audit log
     await log_audit(db, kullanici_id=user.id, islem_tipi="LOGIN", detay="Kullanıcı sisteme giriş yaptı.")
 
-    return {"access_token": access_token, "token_type": "bearer"}
+    return {"access_token": access_token, "token_type": "bearer", "refresh_token": refresh_token}
+
+
+@app.post("/logout", tags=["Kimlik Doğrulama"])
+async def logout(token: str = Depends(oauth2_scheme), db: AsyncSession = Depends(get_db)):
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        jti = payload.get("jti")
+        if jti:
+            blacklisted_token = models.TokenBlocklist(jti=jti)
+            db.add(blacklisted_token)
+            await db.commit()
+    except jwt.PyJWTError:
+        pass
+    return {"mesaj": "Başarıyla çıkış yapıldı"}
+
+
+@app.post("/refresh", response_model=schemas.Token, tags=["Kimlik Doğrulama"])
+@limiter.limit(os.getenv("AUTH_RATE_LIMIT", "5/minute"))
+async def refresh_token(request: Request, body: schemas.RefreshTokenRequest, db: AsyncSession = Depends(get_db)):
+    credentials_exception = HTTPException(status_code=401, detail="Geçersiz refresh token")
+    try:
+        payload = jwt.decode(body.refresh_token, SECRET_KEY, algorithms=[ALGORITHM])
+        if payload.get("type") != "refresh":
+            raise credentials_exception
+
+        jti = payload.get("jti")
+        if jti:
+            blacklisted = await db.execute(select(models.TokenBlocklist).filter(models.TokenBlocklist.jti == jti))
+            if blacklisted.scalars().first():
+                raise credentials_exception
+
+        email: str = payload.get("sub")
+        rol: str = payload.get("rol")
+        if email is None:
+            raise credentials_exception
+
+        new_access_token = create_access_token(data={"sub": email, "rol": rol})
+        new_refresh_token = create_refresh_token(data={"sub": email, "rol": rol})
+
+        if jti:
+            db.add(models.TokenBlocklist(jti=jti))
+            await db.commit()
+
+        return {"access_token": new_access_token, "token_type": "bearer", "refresh_token": new_refresh_token}
+    except jwt.PyJWTError:
+        raise credentials_exception
 
 
 # ---------------------------------------------------------------------------
@@ -398,6 +479,8 @@ async def get_audit_logs(
     Son denetim izi kayıtlarını döner.
     Kimin ne zaman ne yaptığını izlemek için kullanılır.
     Sadece yönetici rolü erişebilir.
+    Not: Audit log'lar append-only (sadece ekleme) olup, sistem üzerinden silinemez veya güncellenemez.
+    Kayıtlar yasal mevzuatlar gereği 2 yıl saklanmalıdır (prodüksiyon öncesi hukuk departmanı ile teyit ediniz).
     """
     q = select(models.AuditLog).order_by(models.AuditLog.timestamp.desc()).limit(limit)
     if islem_tipi:
@@ -513,7 +596,12 @@ async def sim_tetikle(
     "/su-olcumu/{id}/aksiyon-onerisi",
     tags=["LLM — Aksiyon Önerisi (Aşama 3)"],
 )
-async def get_su_olcumu_aksiyon_onerisi(id: int, background_tasks: BackgroundTasks, db: AsyncSession = Depends(get_db)):
+async def get_su_olcumu_aksiyon_onerisi(
+    id: int,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+    current_user: models.Kullanici = Depends(require_role(["saha_personeli", "yonetici"])),
+):
     """
     Ölçüm için anomali raporu çıkarır ve LLM üzerinden teknik aksiyon önerisi döndürür.
     """

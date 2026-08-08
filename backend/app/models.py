@@ -94,3 +94,14 @@ class AuditLog(Base):
     islem_tipi = Column(String, nullable=False)  # e.g., 'LOGIN', 'OLCUM_EKLENDI', 'AYAR_DEGISTIRILDI'
     detay = Column(Text, nullable=True)
     timestamp = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class TokenBlocklist(Base):
+    """
+    Store revoked JWT IDs (jti) to blacklist tokens upon logout.
+    """
+
+    __tablename__ = "token_blocklist"
+    id = Column(Integer, primary_key=True, index=True)
+    jti = Column(String, unique=True, index=True, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())

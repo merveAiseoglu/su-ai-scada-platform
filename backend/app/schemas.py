@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 # ---------------------------------------------------------------------------
@@ -59,11 +59,11 @@ class AnalizMetrikleriResponse(BaseModel):
 
 class SuOlcumuBase(BaseModel):
     istasyon_id: int
-    ph: Optional[float] = None
-    serbest_klor: Optional[float] = None
-    bulaniklik: Optional[float] = None
-    iletkenlik: Optional[float] = None
-    sicaklik: Optional[float] = None
+    ph: Optional[float] = Field(None, ge=0.0, le=14.0)
+    serbest_klor: Optional[float] = Field(None, ge=0.0)
+    bulaniklik: Optional[float] = Field(None, ge=0.0)
+    iletkenlik: Optional[float] = Field(None, ge=0.0)
+    sicaklik: Optional[float] = Field(None, ge=-20.0, le=60.0)
     personel_notu: Optional[str] = None
 
 
@@ -104,6 +104,11 @@ class AksiyonOneriResponse(BaseModel):
 class Token(BaseModel):
     access_token: str
     token_type: str
+    refresh_token: Optional[str] = None
+
+
+class RefreshTokenRequest(BaseModel):
+    refresh_token: str
 
 
 class TokenData(BaseModel):
