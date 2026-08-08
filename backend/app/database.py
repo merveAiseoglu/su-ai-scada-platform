@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-DATABASE_URL = os.getenv("DATABASE_URL")
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///:memory:")
 
 # GELİŞTİRME ORTAMI: Şema değişikliklerini uygulamak için tabloları yeniden oluştur.
 # ÜRETİMDE bu satırı False yapın veya Alembic migration'a geçin.
