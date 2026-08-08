@@ -1,32 +1,32 @@
 # app/main.py  —  Su-AI API v4.0  (Asenkron LLM + BackgroundTasks)
 import datetime as _dt
-import random
 import os
+import random
 from contextlib import asynccontextmanager
-from typing import List
 from datetime import timedelta
-import jwt
+from typing import List
 
+import jwt
 from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
 from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
 from app import models, schemas
 from app.auth import (
     ACCESS_TOKEN_EXPIRE_MINUTES,
+    ALGORITHM,
+    SECRET_KEY,
     create_access_token,
     create_refresh_token,
     log_audit,
+    oauth2_scheme,
     require_role,
     verify_password,
-    SECRET_KEY,
-    ALGORITHM,
-    oauth2_scheme,
 )
 from app.database import DEV_DROP_RECREATE, SessionLocal, engine, get_db
 from app.engine import hesapla_anomali_durumu
@@ -278,8 +278,76 @@ async def refresh_token(request: Request, body: schemas.RefreshTokenRequest, db:
             await db.commit()
 
         return {"access_token": new_access_token, "token_type": "bearer", "refresh_token": new_refresh_token}
-    except jwt.PyJWTError:
-        raise credentials_exception
+    except jwt.PyJWTError as err:
+        raise credentials_exception from err
+
+
+# ---------------------------------------------------------------------------
+# LLMOps Dashboard Endpoint (Yönetici Özel)
+# ---------------------------------------------------------------------------
+
+
+@app.get("/admin/llmops/dashboard", response_model=schemas.LLMOpsDashboardResponse, tags=["LLMOps"])
+async def get_llmops_dashboard(
+    db: AsyncSession = Depends(get_db),
+    current_user: models.Kullanici = Depends(require_role(["yonetici"])),
+):
+    """
+    LLM-as-a-Judge analiz metriklerini döner.
+    Prompt versiyonları ve LLM sağlayıcılarına göre A/B testi ve başarı kırılımını içerir.
+    """
+    from sqlalchemy.future import select
+    from sqlalchemy.sql import func
+
+    # 1. Genel Ortalama ve Toplam
+    overall_result = await db.execute(
+        select(func.avg(models.AnalizMetrikleri.uygunluk_puani), func.count(models.AnalizMetrikleri.id))
+    )
+    overall_avg, total_evals = overall_result.first()
+    overall_avg = float(overall_avg) if overall_avg else 0.0
+    total_evals = total_evals or 0
+
+    # 2. Prompt Versiyonuna Göre
+    prompt_result = await db.execute(
+        select(
+            models.AnalizMetrikleri.prompt_version,
+            func.avg(models.AnalizMetrikleri.uygunluk_puani),
+            func.count(models.AnalizMetrikleri.id),
+        ).group_by(models.AnalizMetrikleri.prompt_version)
+    )
+    by_prompt = []
+    for row in prompt_result.all():
+        by_prompt.append(
+            {"prompt_version": row[0] or "unknown", "avg_score": float(row[1]) if row[1] else 0.0, "count": row[2]}
+        )
+
+    # 3. LLM Sağlayıcısına Göre
+    provider_result = await db.execute(
+        select(
+            models.AnalizMetrikleri.llm_provider,
+            func.avg(models.AnalizMetrikleri.uygunluk_puani),
+            func.count(models.AnalizMetrikleri.id),
+        ).group_by(models.AnalizMetrikleri.llm_provider)
+    )
+    by_provider = []
+    for row in provider_result.all():
+        by_provider.append(
+            {"llm_provider": row[0] or "unknown", "avg_score": float(row[1]) if row[1] else 0.0, "count": row[2]}
+        )
+
+    # 4. En düşük puanlı 5 analiz
+    lowest_result = await db.execute(
+        select(models.AnalizMetrikleri).order_by(models.AnalizMetrikleri.uygunluk_puani.asc()).limit(5)
+    )
+    lowest_scores = lowest_result.scalars().all()
+
+    return {
+        "overall_avg_score": overall_avg,
+        "total_evaluations": total_evals,
+        "by_prompt_version": by_prompt,
+        "by_provider": by_provider,
+        "lowest_scores": lowest_scores,
+    }
 
 
 # ---------------------------------------------------------------------------

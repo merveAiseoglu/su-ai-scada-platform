@@ -26,8 +26,8 @@ cloud_client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY", "dummy"), timeout
 local_client = AsyncOpenAI(base_url="http://ollama:11434/v1", api_key="ollama", max_retries=0, timeout=90.0)
 
 
-async def _get_llm_response(messages: list, fallback_to_local: bool = True, **kwargs) -> str:
-    """Hybrid LLM Çağrısı: Önce bulutu dener, hata alırsa yerele (Edge) düşer."""
+async def _get_llm_response(messages: list, fallback_to_local: bool = True, **kwargs) -> tuple[str, str]:
+    """Hybrid LLM Çağrısı: Önce bulutu dener, hata alırsa yerele (Edge) düşer. Tuple(icerik, provider) doner."""
     has_cloud_key = os.getenv("OPENAI_API_KEY") is not None
 
     if has_cloud_key:
@@ -36,7 +36,7 @@ async def _get_llm_response(messages: list, fallback_to_local: bool = True, **kw
             response = await cloud_client.chat.completions.create(
                 model="gpt-4o-mini", messages=messages, temperature=0.2, max_tokens=500, **kwargs
             )
-            return response.choices[0].message.content
+            return response.choices[0].message.content, "openai"
         except Exception as e:
             logger.warning(
                 f"[HYBRID-AI] Bulut (OpenAI) başarısız oldu ({e}). Yerel Edge (Ollama) sistemine geçiliyor..."
@@ -47,45 +47,23 @@ async def _get_llm_response(messages: list, fallback_to_local: bool = True, **kw
         response = await local_client.chat.completions.create(
             model="llama3.2:1b", messages=messages, temperature=0.2, max_tokens=500, **kwargs
         )
-        return response.choices[0].message.content
+        return response.choices[0].message.content, "ollama"
     except Exception as e:
         logger.error(f"[HYBRID-AI] Yerel Edge (Ollama) de başarısız oldu: {e}")
-        return "Sistem şu anda yanıt veremiyor. Lütfen IT departmanına haber verin."
+        return "Sistem şu anda yanıt veremiyor. Lütfen IT departmanına haber verin.", "none"
 
 
-# Sistem promptu — LLM rolünü ve sınırlarını kesin olarak tanımlar
-SISTEM_PROMPTU = """Sen Şanlıurfa Su ve Kanalizasyon İdaresi (ŞUSKİ) bünyesinde çalışan kıdemli bir Altyapı ve Su Kalitesi Analiz Uzmanısın.
-
-Görevin: Otomatik kural motorunun (engine.py) ürettiği anomali tespitlerini, saha personelinin anlayacağı teknik, kurumsal ve çözüm odaklı bir aksiyon planına dönüştürmek. Sen bir "narratör"sün — karar vermez, kural motorunun kararını profesyonel teknik dille detaylandırırsın.
-
-ŞUSKİ Referans Eşikleri (Yalnızca mevcut verileri yorumlamak için kullan, yeni eşik üretme):
-  - pH: 6.5 – 8.5 (İdeal: 7.70)
-  - Serbest Klor: 0.2 – 2.0 mg/L (İdeal: 1.70 mg/L) | < 0.1 mg/L → Biyolojik Risk
-  - Bulanıklık: < 1.0 NTU (Uyarı: > 1.0 NTU | Kritik: > 5.0 NTU) → Fiziksel Kirlilik
-  - Basınç: 3.0 – 5.0 Bar | < 1.5 Bar → Altyapı Arızası / Boru Patlağı İhtimali
-
-Risk Kategorileri (Ciddiyeti belirtirken kullan):
-  - NORMAL: Şebeke güvenli, standartlar dahilinde.
-  - DÜŞÜK: Yakın takip gerektiren durum.
-  - ORTA: Önlem alınması gereken durum, saha ekibine bildir.
-  - KRİTİK: ACİL müdahale — biyolojik risk, altyapı arızası veya bulanıklık artışı.
-
-Anlatım Tarzı: Teknik, çözüm odaklı ve kurumsal. Gereksiz selamlama yok. Tecrübeli personele sade, yeni personele yeterince açıklayıcı.
-
-Sınır: KESİNLİKLE yeni yasal eşik, referans veya regülasyon üretme. Sadece verilen kural motoru çıktısını ve Geçmiş Kurumsal Hafıza verilerini kullan.
-
-Çıktı Formatı (Sadece bu iki başlığı kullan, madde imli):
-**Mevcut Durum:**
-- [Anomalinin teknik özeti ve ciddiyeti]
-
-**Önerilen Aksiyon:**
-- [Adım 1]
-- [Adım 2]
-- [Geçmiş hafızaya atıfla: "Benzer vakada X yapılmıştı..." şeklinde somut yönlendirme]
-"""
+def _get_narrator_prompt() -> str:
+    prompt_path = os.path.join(os.path.dirname(__file__), "prompts", "narrator_v1.txt")
+    try:
+        with open(prompt_path, "r", encoding="utf-8") as f:
+            return f.read()
+    except FileNotFoundError:
+        logger.warning(f"Prompt dosyası bulunamadı: {prompt_path}. Varsayılan prompt kullanılıyor.")
+        return "Sen Şanlıurfa Su ve Kanalizasyon İdaresi (ŞUSKİ) bünyesinde çalışan kıdemli bir Altyapı ve Su Kalitesi Analiz Uzmanısın."
 
 
-async def olustur_teknik_aksiyon_onerisi(olcum_id: int, anomali_raporu: dict, db) -> tuple[str, str]:
+async def olustur_teknik_aksiyon_onerisi(olcum_id: int, anomali_raporu: dict, db) -> tuple[str, str, str]:
     """
     Kural motoru sonucunu alarak saha personeline yönelik teknik aksiyon önerisi üretir.
     """
@@ -97,7 +75,7 @@ async def olustur_teknik_aksiyon_onerisi(olcum_id: int, anomali_raporu: dict, db
     result = await db.execute(select(models.SuOlcumu).filter(models.SuOlcumu.id == olcum_id))
     olcum = result.scalars().first()
     if not olcum:
-        return "Ölçüm bulunamadı", "HATA"
+        return "Ölçüm bulunamadı", "HATA", "none"
 
     olcum_verisi = {
         "ph": olcum.ph,
@@ -116,7 +94,7 @@ async def olustur_teknik_aksiyon_onerisi(olcum_id: int, anomali_raporu: dict, db
     if risk == "NORMAL":
         oneri = "**Mevcut Durum:**\n- Şebeke suyu güvenli, tüm değerler standartlar dahilindedir. Herhangi bir anomali tespit edilmemiştir.\n\n**Önerilen Aksiyon:**\n- Rutin kontrol takvimine göre bir sonraki ölçümü planlayın.\n- Ekstra bir aksiyon gerekmemektedir."
         logger.info("LLM atlandı: Risk NORMAL. Varsayılan metin döndürüldü.")
-        return oneri, "BASARILI"
+        return oneri, "BASARILI", "static"
 
     aciliyet_map = {
         "DÜŞÜK": "yakın takip gerektiren durum",
@@ -168,17 +146,20 @@ UNUTMA: Yeni eşik/yasal referans üretme, sadece verilen veriyi yorumla ve geç
 
     try:
         # LLM'e (Hybrid) İstek At
-        messages = [{"role": "system", "content": SISTEM_PROMPTU}, {"role": "user", "content": kullanici_promptu}]
+        messages = [
+            {"role": "system", "content": _get_narrator_prompt()},
+            {"role": "user", "content": kullanici_promptu},
+        ]
 
-        oneri = await _get_llm_response(messages)
+        oneri, provider = await _get_llm_response(messages)
         logger.info(f"LLM aksiyon önerisi başarıyla oluşturuldu. Risk: {risk}")
-        return oneri, "BASARILI"
+        return oneri, "BASARILI", provider
 
     except Exception as e:
         logger.error(f"LLM servisi hatası: {e}")
         # Fallback: LLM olmadan da sistem çalışmaya devam eder
         fallback = _olustur_fallback_oneri(kural_motoru_sonucu)
-        return fallback, "DEVRE_DISI"
+        return fallback, "DEVRE_DISI", "fallback"
 
 
 def _olustur_fallback_oneri(kural_motoru_sonucu: dict) -> str:
@@ -254,7 +235,7 @@ async def arka_planda_analiz_et(olcum_id: int, db_factory) -> None:
             kural_motoru_sonucu = await hesapla_anomali_durumu(db, analiz_girdisi)
 
             # 3. LLM narratör → aksiyon önerisi
-            teknik_oneri, llm_durumu = await olustur_teknik_aksiyon_onerisi(
+            teknik_oneri, llm_durumu, provider = await olustur_teknik_aksiyon_onerisi(
                 olcum_id=olcum_id, anomali_raporu=kural_motoru_sonucu, db=db
             )
 
@@ -271,7 +252,11 @@ async def arka_planda_analiz_et(olcum_id: int, db_factory) -> None:
 
             from app.judge_service import degerlendir_llm_ciktisi
 
-            asyncio.create_task(degerlendir_llm_ciktisi(olcum_id, kural_motoru_sonucu, teknik_oneri, db_factory))
+            asyncio.create_task(
+                degerlendir_llm_ciktisi(
+                    olcum_id, kural_motoru_sonucu, teknik_oneri, db_factory, provider, olcum.istasyon_id
+                )
+            )
 
         except Exception as e:
             logger.error(f"[BG] Beklenmeyen hata (id={olcum_id}): {e}", exc_info=True)

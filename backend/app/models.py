@@ -76,6 +76,10 @@ class AnalizMetrikleri(Base):
     llm_onerisi = Column(Text, nullable=True)  # Yargıca gönderilen orijinal öneri
     uygunluk_puani = Column(Integer, nullable=False)  # 0–100 arası
     degerlendirme_notu = Column(Text, nullable=False)  # Halüsinasyon vs. açıklaması
+    prompt_version = Column(String, nullable=True)  # e.g., "v1"
+    llm_provider = Column(String, nullable=True)  # e.g., "openai" or "ollama"
+    istasyon_id = Column(Integer, ForeignKey("istasyonlar.id", ondelete="CASCADE"), nullable=True, index=True)
+    timestamp = Column(DateTime(timezone=True), server_default=func.now())
 
 
 class Kullanici(Base):

@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 
 from sqlalchemy.future import select
 
@@ -8,16 +9,20 @@ from app.llm_service import _get_llm_response
 
 logger = logging.getLogger(__name__)
 
-YARGIC_SISTEM_PROMPTU = """Sen Sistem Çıktısı Kalite Kontrol Denetçisisin.
-Görev: Verilen "Anomali Raporu" ile üretilen "LLM Önerisi"ni karşılaştır. Öneri, regülasyon kurallarına uygun mu? Halüsinasyon (uydurma referans veya yasal olmayan eşik) var mı? Mantıklı ve eksiksiz mi?
-Çıktı Formatı:
-Sadece saf JSON dön:
-{"uygunluk_puani": <0-100 arasi sayi>, "degerlendirme_notu": "<aciklama>"}
-Başka hiçbir ek metin yazma.
-"""
+
+def _get_judge_prompt() -> str:
+    prompt_path = os.path.join(os.path.dirname(__file__), "prompts", "judge_v1.txt")
+    try:
+        with open(prompt_path, "r", encoding="utf-8") as f:
+            return f.read()
+    except FileNotFoundError:
+        logger.warning(f"Prompt dosyası bulunamadı: {prompt_path}. Varsayılan prompt kullanılıyor.")
+        return 'Sen Sistem Çıktısı Kalite Kontrol Denetçisisin.\nGörev: Verilen "Anomali Raporu" ile üretilen "LLM Önerisi"ni karşılaştır. Öneri, regülasyon kurallarına uygun mu? Halüsinasyon (uydurma referans veya yasal olmayan eşik) var mı? Mantıklı ve eksiksiz mi?\nÇıktı Formatı:\nSadece saf JSON dön:\n{"uygunluk_puani": 100, "degerlendirme_notu": "..."}'
 
 
-async def degerlendir_llm_ciktisi(olcum_id: int, anomali_raporu: dict, llm_onerisi: str, db_factory):
+async def degerlendir_llm_ciktisi(
+    olcum_id: int, anomali_raporu: dict, llm_onerisi: str, db_factory, provider: str, istasyon_id: int
+):
     """
     LLM'in ürettiği çıktıyı arka planda denetler (LLM-as-a-Judge) ve veritabanına yazar.
     FastAPI BackgroundTasks için tasarlanmıştır.
@@ -43,11 +48,11 @@ Yukarıdaki öneriyi anomali raporuyla kıyasla, halüsinasyonları veya eksikle
 
     try:
         messages = [
-            {"role": "system", "content": YARGIC_SISTEM_PROMPTU},
+            {"role": "system", "content": _get_judge_prompt()},
             {"role": "user", "content": kullanici_promptu},
         ]
 
-        yanit_str = await _get_llm_response(messages, response_format={"type": "json_object"}, temperature=0.1)
+        yanit_str, _ = await _get_llm_response(messages, response_format={"type": "json_object"}, temperature=0.1)
 
         sonuc_json = json.loads(yanit_str)
         uygunluk_puani = int(sonuc_json.get("uygunluk_puani", 0))
@@ -73,12 +78,18 @@ Yukarıdaki öneriyi anomali raporuyla kıyasla, halüsinasyonları veya eksikle
                 mevcut_metrik.llm_onerisi = llm_onerisi
                 mevcut_metrik.uygunluk_puani = uygunluk_puani
                 mevcut_metrik.degerlendirme_notu = degerlendirme_notu
+                mevcut_metrik.prompt_version = "v1"
+                mevcut_metrik.llm_provider = provider
+                mevcut_metrik.istasyon_id = istasyon_id
             else:
                 yeni_metrik = models.AnalizMetrikleri(
                     olcum_id=olcum_id,
                     llm_onerisi=llm_onerisi,
                     uygunluk_puani=uygunluk_puani,
                     degerlendirme_notu=degerlendirme_notu,
+                    prompt_version="v1",
+                    llm_provider=provider,
+                    istasyon_id=istasyon_id,
                 )
                 db.add(yeni_metrik)
 

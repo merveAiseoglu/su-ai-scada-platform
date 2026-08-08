@@ -145,3 +145,38 @@ class AuditLogResponse(BaseModel):
     timestamp: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+# ---------------------------------------------------------------------------
+# LLMOps Dashboard Şemaları
+# ---------------------------------------------------------------------------
+
+
+class PromptVersionStat(BaseModel):
+    prompt_version: str
+    avg_score: float
+    count: int
+
+
+class ProviderStat(BaseModel):
+    llm_provider: str
+    avg_score: float
+    count: int
+
+
+class LowScoreRecommendation(BaseModel):
+    olcum_id: int
+    istasyon_id: Optional[int]
+    uygunluk_puani: int
+    degerlendirme_notu: str
+    prompt_version: Optional[str]
+    llm_provider: Optional[str]
+    timestamp: datetime
+
+
+class LLMOpsDashboardResponse(BaseModel):
+    overall_avg_score: float
+    total_evaluations: int
+    by_prompt_version: list[PromptVersionStat]
+    by_provider: list[ProviderStat]
+    lowest_scores: list[LowScoreRecommendation]
