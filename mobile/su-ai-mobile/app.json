@@ -1,0 +1,47 @@
+{
+  "expo": {
+    "name": "Su-AI",
+    "slug": "su-ai-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "scheme": "su-ai",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "tr.gov.sanliurfa.su-ai"
+    },
+    "android": {
+      "package": "tr.gov.sanliurfa.su_ai",
+      "adaptiveIcon": {
+        "backgroundColor": "#0A1628",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "permissions": [
+        "RECEIVE_BOOT_COMPLETED",
+        "VIBRATE",
+        "ACCESS_NETWORK_STATE",
+        "INTERNET"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#0A1628",
+          "sounds": []
+        }
+      ],
+      "expo-sqlite"
+    ],
+    "extra": {
+      "apiBaseUrl": "http://10.92.228.168:8000"
+    }
+  }
+}

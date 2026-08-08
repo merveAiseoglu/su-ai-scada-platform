@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15
+    container_name: su_ai_db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: merve.6363
+      POSTGRES_DB: su_ai
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d su_ai"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  ollama:
+    image: ollama/ollama
+    container_name: ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: su_ai_backend
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:merve.6363@db:5432/su_ai
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      ollama:
+        condition: service_started
+    volumes:
+      - ./backend:/app
+      - chroma_cache:/root/.cache/chroma
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  ollama_data:
+  chroma_cache:
