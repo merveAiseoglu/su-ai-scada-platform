@@ -1,4 +1,5 @@
 import os
+
 import chromadb
 from chromadb.utils import embedding_functions
 
@@ -13,37 +14,34 @@ client = chromadb.PersistentClient(path=CHROMA_DB_PATH)
 # internet olmadan çalışır (Zero-Trust)
 default_ef = embedding_functions.DefaultEmbeddingFunction()
 
+
 def get_collection():
     """Koleksiyonu getirir veya yoksa oluşturur"""
-    return client.get_or_create_collection(
-        name=COLLECTION_NAME,
-        embedding_function=default_ef
-    )
+    return client.get_or_create_collection(name=COLLECTION_NAME, embedding_function=default_ef)
+
 
 def search_rag_memory(query_text: str, n_results: int = 2) -> list[str]:
     """
     Verilen metinle semantik arama yaparak geçmişteki en benzer vakaları getirir.
     """
     collection = get_collection()
-    
+
     # Veritabanında kayıt yoksa boş dön
     if collection.count() == 0:
         return []
-    
-    results = collection.query(
-        query_texts=[query_text],
-        n_results=min(n_results, collection.count())
-    )
-    
+
+    results = collection.query(query_texts=[query_text], n_results=min(n_results, collection.count()))
+
     # Eşleşen dökümanları döndür
     if not results or not results["documents"] or not results["documents"][0]:
         return []
-        
+
     return results["documents"][0]
+
 
 def preload_rag_model():
     """
-    RAG embedding modelini sunucu başlarken (startup) yükleyerek 
+    RAG embedding modelini sunucu başlarken (startup) yükleyerek
     ilk istekteki 50-60 saniyelik gecikmeyi (soğuk başlangıç) önler.
     """
     print("[RAG] Hafıza modeli (all-MiniLM-L6-v2) önbelleğe alınıyor...")

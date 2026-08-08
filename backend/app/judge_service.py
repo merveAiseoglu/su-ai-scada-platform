@@ -1,7 +1,6 @@
-import os
 import json
 import logging
-from openai import AsyncOpenAI
+
 from sqlalchemy.future import select
 
 from app import models
@@ -17,16 +16,17 @@ Sadece saf JSON dön:
 Başka hiçbir ek metin yazma.
 """
 
+
 async def degerlendir_llm_ciktisi(olcum_id: int, anomali_raporu: dict, llm_onerisi: str, db_factory):
     """
     LLM'in ürettiği çıktıyı arka planda denetler (LLM-as-a-Judge) ve veritabanına yazar.
     FastAPI BackgroundTasks için tasarlanmıştır.
     """
     # Anomali listesini okunabilir formata çevir
-    anomali_ozeti = "\n".join([
-        f"  - [{a['risk']}] {a['kural']}: {a['mesaj']}"
-        for a in anomali_raporu.get("detaylar", [])
-    ]) or "  - Anomali tespit edilmedi (NORMAL durum)."
+    anomali_ozeti = (
+        "\n".join([f"  - [{a['risk']}] {a['kural']}: {a['mesaj']}" for a in anomali_raporu.get("detaylar", [])])
+        or "  - Anomali tespit edilmedi (NORMAL durum)."
+    )
 
     kullanici_promptu = f"""Şu bilgileri değerlendirmeni istiyorum:
 
@@ -44,15 +44,11 @@ Yukarıdaki öneriyi anomali raporuyla kıyasla, halüsinasyonları veya eksikle
     try:
         messages = [
             {"role": "system", "content": YARGIC_SISTEM_PROMPTU},
-            {"role": "user",   "content": kullanici_promptu},
+            {"role": "user", "content": kullanici_promptu},
         ]
-        
-        yanit_str = await _get_llm_response(
-            messages, 
-            response_format={"type": "json_object"},
-            temperature=0.1
-        )
-        
+
+        yanit_str = await _get_llm_response(messages, response_format={"type": "json_object"}, temperature=0.1)
+
         sonuc_json = json.loads(yanit_str)
         uygunluk_puani = int(sonuc_json.get("uygunluk_puani", 0))
         degerlendirme_notu = str(sonuc_json.get("degerlendirme_notu", "Parse hatası."))
@@ -68,9 +64,11 @@ Yukarıdaki öneriyi anomali raporuyla kıyasla, halüsinasyonları veya eksikle
     # Sonucu veritabanına kaydet
     async with db_factory() as db:
         try:
-            result = await db.execute(select(models.AnalizMetrikleri).filter(models.AnalizMetrikleri.olcum_id == olcum_id))
+            result = await db.execute(
+                select(models.AnalizMetrikleri).filter(models.AnalizMetrikleri.olcum_id == olcum_id)
+            )
             mevcut_metrik = result.scalars().first()
-            
+
             if mevcut_metrik:
                 mevcut_metrik.llm_onerisi = llm_onerisi
                 mevcut_metrik.uygunluk_puani = uygunluk_puani
@@ -80,10 +78,10 @@ Yukarıdaki öneriyi anomali raporuyla kıyasla, halüsinasyonları veya eksikle
                     olcum_id=olcum_id,
                     llm_onerisi=llm_onerisi,
                     uygunluk_puani=uygunluk_puani,
-                    degerlendirme_notu=degerlendirme_notu
+                    degerlendirme_notu=degerlendirme_notu,
                 )
                 db.add(yeni_metrik)
-            
+
             await db.commit()
         except Exception as db_err:
             logger.error(f"[Judge] Veritabanı kayıt hatası (olcum_id={olcum_id}): {db_err}")

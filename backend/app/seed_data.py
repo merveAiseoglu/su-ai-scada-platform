@@ -1,5 +1,7 @@
 import asyncio
+
 from sqlalchemy.future import select
+
 from app.database import SessionLocal
 from app.models import EsikDegeri
 
@@ -9,37 +11,38 @@ SEED_DATA = [
         "min_deger": 6.5,
         "max_deger": 9.5,
         "birim": "pH",
-        "kaynak_url": "TS 266 - İnsani Tüketim Amaçlı Sular Standardı"
+        "kaynak_url": "TS 266 - İnsani Tüketim Amaçlı Sular Standardı",
     },
     {
         "parametre_adi": "serbest_klor",
         "min_deger": 0.2,
         "max_deger": 0.5,
         "birim": "mg/L",
-        "kaynak_url": "Sağlık Bakanlığı Şebeke Suyu Klorlama Rehberi (Uç Nokta)"
+        "kaynak_url": "Sağlık Bakanlığı Şebeke Suyu Klorlama Rehberi (Uç Nokta)",
     },
     {
         "parametre_adi": "iletkenlik",
         "min_deger": 0.0,
         "max_deger": 2500.0,
         "birim": "µS/cm",
-        "kaynak_url": "TS 266 - İnsani Tüketim Amaçlı Sular Standardı"
+        "kaynak_url": "TS 266 - İnsani Tüketim Amaçlı Sular Standardı",
     },
     {
         "parametre_adi": "bulaniklik",
         "min_deger": 0.0,
         "max_deger": 1.0,
         "birim": "NTU",
-        "kaynak_url": "TS 266 - İnsani Tüketim Amaçlı Sular (Arıtılmış Yüzeysel Su)"
+        "kaynak_url": "TS 266 - İnsani Tüketim Amaçlı Sular (Arıtılmış Yüzeysel Su)",
     },
     {
         "parametre_adi": "klorur",
         "min_deger": 0.0,
         "max_deger": 250.0,
         "birim": "mg/L",
-        "kaynak_url": "TS 266 - Sınıf 2 Tip 2 Gösterge Özellikleri"
-    }
+        "kaynak_url": "TS 266 - Sınıf 2 Tip 2 Gösterge Özellikleri",
+    },
 ]
+
 
 async def seed_esik_degerleri():
     async with SessionLocal() as db:
@@ -52,9 +55,10 @@ async def seed_esik_degerleri():
                 yeni_esik = EsikDegeri(**data)
                 db.add(yeni_esik)
                 print(f"[EKLENDİ] {data['parametre_adi']} eşik değeri eklendi.")
-        
+
         await db.commit()
         print("Tüm seed işlemleri tamamlandı.")
+
 
 if __name__ == "__main__":
     asyncio.run(seed_esik_degerleri())

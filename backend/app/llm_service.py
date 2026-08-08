@@ -8,59 +8,50 @@ sonucunu saha personelinin anlayacağı teknik bir aksiyon planına
 çevirmektir. LLM bir "narratör"dür, karar veren değil.
 """
 
-import os
-import json
 import logging
-from openai import AsyncOpenAI
+import os
+
 from dotenv import load_dotenv
+from openai import AsyncOpenAI
 
 load_dotenv()
 
 logger = logging.getLogger(__name__)
 
-# Hybrid Edge-Cloud Mimarisi: 
+# Hybrid Edge-Cloud Mimarisi:
 # 1. Bulut (OpenAI) denenir.
 # 2. İnternet yoksa, kota dolmuşsa veya API key yoksa Yerel Edge (Ollama) sistemine düşer (Fallback).
 
 cloud_client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY", "dummy"), timeout=15.0)
-local_client = AsyncOpenAI(
-    base_url="http://ollama:11434/v1",
-    api_key="ollama",
-    max_retries=0,
-    timeout=90.0
-)
+local_client = AsyncOpenAI(base_url="http://ollama:11434/v1", api_key="ollama", max_retries=0, timeout=90.0)
+
 
 async def _get_llm_response(messages: list, fallback_to_local: bool = True, **kwargs) -> str:
     """Hybrid LLM Çağrısı: Önce bulutu dener, hata alırsa yerele (Edge) düşer."""
     has_cloud_key = os.getenv("OPENAI_API_KEY") is not None
-    
+
     if has_cloud_key:
         try:
             # Bulut Denemesi
             response = await cloud_client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=messages,
-                temperature=0.2,
-                max_tokens=500,
-                **kwargs
+                model="gpt-4o-mini", messages=messages, temperature=0.2, max_tokens=500, **kwargs
             )
             return response.choices[0].message.content
         except Exception as e:
-            logger.warning(f"[HYBRID-AI] Bulut (OpenAI) başarısız oldu ({e}). Yerel Edge (Ollama) sistemine geçiliyor...")
-    
+            logger.warning(
+                f"[HYBRID-AI] Bulut (OpenAI) başarısız oldu ({e}). Yerel Edge (Ollama) sistemine geçiliyor..."
+            )
+
     # Yerel Edge (Ollama) Fallback
     try:
         response = await local_client.chat.completions.create(
-            model="llama3.2:1b",
-            messages=messages,
-            temperature=0.2,
-            max_tokens=500,
-            **kwargs
+            model="llama3.2:1b", messages=messages, temperature=0.2, max_tokens=500, **kwargs
         )
         return response.choices[0].message.content
     except Exception as e:
         logger.error(f"[HYBRID-AI] Yerel Edge (Ollama) de başarısız oldu: {e}")
         return "Sistem şu anda yanıt veremiyor. Lütfen IT departmanına haber verin."
+
 
 # Sistem promptu — LLM rolünü ve sınırlarını kesin olarak tanımlar
 SISTEM_PROMPTU = """Sen Şanlıurfa Su ve Kanalizasyon İdaresi (ŞUSKİ) bünyesinde çalışan kıdemli bir Altyapı ve Su Kalitesi Analiz Uzmanısın.
@@ -94,23 +85,20 @@ Sınır: KESİNLİKLE yeni yasal eşik, referans veya regülasyon üretme. Sadec
 """
 
 
-async def olustur_teknik_aksiyon_onerisi(
-    olcum_id: int,
-    anomali_raporu: dict,
-    db
-) -> tuple[str, str]:
+async def olustur_teknik_aksiyon_onerisi(olcum_id: int, anomali_raporu: dict, db) -> tuple[str, str]:
     """
     Kural motoru sonucunu alarak saha personeline yönelik teknik aksiyon önerisi üretir.
     """
-    from app import models
     from sqlalchemy.future import select
-    
+
+    from app import models
+
     # Fetch olcum_verisi from db
     result = await db.execute(select(models.SuOlcumu).filter(models.SuOlcumu.id == olcum_id))
     olcum = result.scalars().first()
     if not olcum:
         return "Ölçüm bulunamadı", "HATA"
-        
+
     olcum_verisi = {
         "ph": olcum.ph,
         "serbest_klor": olcum.serbest_klor,
@@ -118,38 +106,39 @@ async def olustur_teknik_aksiyon_onerisi(
         "iletkenlik": olcum.iletkenlik,
         "sicaklik": olcum.sicaklik,
     }
-    
+
     kural_motoru_sonucu = anomali_raporu
-    
+
     # Risk seviyesine göre aciliyet bağlamı
     risk = kural_motoru_sonucu.get("en_yuksek_risk_seviyesi", "NORMAL")
-    
+
     # NORMAL durumlar için LLM çağırmadan doğrudan standart yanıt dön.
     if risk == "NORMAL":
         oneri = "**Mevcut Durum:**\n- Şebeke suyu güvenli, tüm değerler standartlar dahilindedir. Herhangi bir anomali tespit edilmemiştir.\n\n**Önerilen Aksiyon:**\n- Rutin kontrol takvimine göre bir sonraki ölçümü planlayın.\n- Ekstra bir aksiyon gerekmemektedir."
-        logger.info(f"LLM atlandı: Risk NORMAL. Varsayılan metin döndürüldü.")
+        logger.info("LLM atlandı: Risk NORMAL. Varsayılan metin döndürüldü.")
         return oneri, "BASARILI"
-        
+
     aciliyet_map = {
         "DÜŞÜK": "yakın takip gerektiren durum",
         "ORTA": "önlem alınması gereken durum",
-        "KRİTİK": "ACİL müdahale gerektiren kritik durum"
+        "KRİTİK": "ACİL müdahale gerektiren kritik durum",
     }
     aciliyet = aciliyet_map.get(risk, "belirsiz durum")
 
     # Anomali detaylarını okunabilir formata çevir
-    anomali_listesi = "\n".join([
-        f"  - [{a['risk']}] {a['kural']}: {a['mesaj']}"
-        for a in kural_motoru_sonucu.get("detaylar", [])
-    ]) or "  - Anomali tespit edilmedi."
+    anomali_listesi = (
+        "\n".join([f"  - [{a['risk']}] {a['kural']}: {a['mesaj']}" for a in kural_motoru_sonucu.get("detaylar", [])])
+        or "  - Anomali tespit edilmedi."
+    )
 
     # RAG Araması (Semantic Search)
-    from app.rag_service import search_rag_memory
     import asyncio
-    
+
+    from app.rag_service import search_rag_memory
+
     query_text = f"Anomaliler: {anomali_listesi} - Ölçüm: pH={olcum_verisi.get('ph')}, Klor={olcum_verisi.get('serbest_klor')}, Bulanıklık={olcum_verisi.get('bulaniklik')}"
     benzer_vakalar = await asyncio.to_thread(search_rag_memory, query_text, 2)
-    
+
     vaka_metni = ""
     if benzer_vakalar:
         vaka_metni = "=== GEÇMİ KURUMSAL HAFIZA (Benzer Vakalar) ===\n" + "\n".join([f"- {v}" for v in benzer_vakalar])
@@ -179,11 +168,8 @@ UNUTMA: Yeni eşik/yasal referans üretme, sadece verilen veriyi yorumla ve geç
 
     try:
         # LLM'e (Hybrid) İstek At
-        messages = [
-            {"role": "system", "content": SISTEM_PROMPTU},
-            {"role": "user", "content": kullanici_promptu}
-        ]
-        
+        messages = [{"role": "system", "content": SISTEM_PROMPTU}, {"role": "user", "content": kullanici_promptu}]
+
         oneri = await _get_llm_response(messages)
         logger.info(f"LLM aksiyon önerisi başarıyla oluşturuldu. Risk: {risk}")
         return oneri, "BASARILI"
@@ -204,8 +190,10 @@ def _olustur_fallback_oneri(kural_motoru_sonucu: dict) -> str:
     detaylar = kural_motoru_sonucu.get("detaylar", [])
 
     if not detaylar:
-        return ("Ölçüm değerleri normal sınırlar içinde görünmektedir. "
-                "Rutin kontrol takviminize göre bir sonraki ölçümü planlayın.")
+        return (
+            "Ölçüm değerleri normal sınırlar içinde görünmektedir. "
+            "Rutin kontrol takviminize göre bir sonraki ölçümü planlayın."
+        )
 
     aksiyon_satirlari = [f"⚠ Risk Seviyesi: {risk}\n"]
     for i, anomali in enumerate(detaylar, 1):
@@ -225,6 +213,7 @@ def _olustur_fallback_oneri(kural_motoru_sonucu: dict) -> str:
 # Arka Plan Görevi (FastAPI BackgroundTasks ile çağrılır)
 # ---------------------------------------------------------------------------
 
+
 async def arka_planda_analiz_et(olcum_id: int, db_factory) -> None:
     """
     FastAPI BackgroundTasks tarafından çağrılan asenkron arka plan görevi.
@@ -238,9 +227,10 @@ async def arka_planda_analiz_et(olcum_id: int, db_factory) -> None:
     6. analiz_durumu = "TAMAMLANDI"
     7. Hata durumunda analiz_durumu = "HATA"
     """
-    from app.engine import hesapla_anomali_durumu
-    from app import models
     from sqlalchemy.future import select
+
+    from app import models
+    from app.engine import hesapla_anomali_durumu
 
     async with db_factory() as db:
         try:
@@ -265,25 +255,22 @@ async def arka_planda_analiz_et(olcum_id: int, db_factory) -> None:
 
             # 3. LLM narratör → aksiyon önerisi
             teknik_oneri, llm_durumu = await olustur_teknik_aksiyon_onerisi(
-                olcum_id=olcum_id,
-                anomali_raporu=kural_motoru_sonucu,
-                db=db
+                olcum_id=olcum_id, anomali_raporu=kural_motoru_sonucu, db=db
             )
 
             # 4. Sonuçları DB'ye yaz — önce olcum alanları
-            olcum.risk_seviyesi  = kural_motoru_sonucu.get("en_yuksek_risk_seviyesi", "NORMAL")
+            olcum.risk_seviyesi = kural_motoru_sonucu.get("en_yuksek_risk_seviyesi", "NORMAL")
             olcum.aksiyon_onerisi = teknik_oneri
-            olcum.analiz_durumu  = "TAMAMLANDI"
+            olcum.analiz_durumu = "TAMAMLANDI"
             await db.commit()
-            
-            logger.info(
-                f"[BG] Tamamlandi: id={olcum_id} | "
-                f"risk={olcum.risk_seviyesi} | llm={llm_durumu}"
-            )
-            
+
+            logger.info(f"[BG] Tamamlandi: id={olcum_id} | " f"risk={olcum.risk_seviyesi} | llm={llm_durumu}")
+
             # 5. LLM-as-a-Judge → Bu DB commit edildikten sonra çalışsın (DB çakışması olmasın diye db_factory geçilir)
-            from app.judge_service import degerlendir_llm_ciktisi
             import asyncio
+
+            from app.judge_service import degerlendir_llm_ciktisi
+
             asyncio.create_task(degerlendir_llm_ciktisi(olcum_id, kural_motoru_sonucu, teknik_oneri, db_factory))
 
         except Exception as e:
