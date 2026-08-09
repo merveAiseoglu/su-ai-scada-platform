@@ -16,6 +16,8 @@ from app.schemas import MqttPayload
 
 logger = logging.getLogger(__name__)
 
+main_loop = None
+
 
 async def process_mqtt_payload(payload: MqttPayload):
     """Async pipeline for processing the validated MQTT payload."""
@@ -85,7 +87,10 @@ def on_message(client, userdata, msg):
         mqtt_message_counter.labels(status="valid").inc()
 
         # Bridge to async FastAPI world
-        asyncio.run(process_mqtt_payload(payload))
+        if main_loop and main_loop.is_running():
+            asyncio.run_coroutine_threadsafe(process_mqtt_payload(payload), main_loop)
+        else:
+            logger.error("[MQTT] Event loop is not running")
 
     except json.JSONDecodeError:
         mqtt_message_counter.labels(status="malformed").inc()
@@ -99,6 +104,12 @@ def on_message(client, userdata, msg):
 
 
 def get_mqtt_client():
+    global main_loop
+    try:
+        main_loop = asyncio.get_running_loop()
+    except RuntimeError:
+        pass  # if called outside of loop
+
     host = os.getenv("MQTT_BROKER_HOST", "localhost")
     port = int(os.getenv("MQTT_BROKER_PORT", "1883"))
 

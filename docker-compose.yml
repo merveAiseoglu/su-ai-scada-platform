@@ -10,7 +10,8 @@ volumes:
   ollama_model_cache:
   prometheus_data:
   grafana_data:
-
+  mosquitto_data:
+  mosquitto_log:
 services:
   # --- Core Services ---
   postgres:
@@ -124,3 +125,15 @@ services:
       - prometheus
       
   # --- IoT/MQTT (Phase 6) ---
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: su-ai-mosquitto
+    volumes:
+      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - mosquitto_data:/mosquitto/data
+      - mosquitto_log:/mosquitto/log
+    ports:
+      - "1883:1883"
+    networks:
+      - su-ai-network
+    restart: unless-stopped
