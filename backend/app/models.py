@@ -33,6 +33,18 @@ class SuOlcumu(Base):
     risk_seviyesi = Column(String, nullable=True)  # Kural motorundan: NORMAL / DÜŞÜK / ORTA / KRİTİK
     aksiyon_onerisi = Column(Text, nullable=True)  # LLM narratörden dönen teknik öneri metni
 
+    # --- Predictive Analiz (Time-Series) ---
+    trend_risk_score = Column(Integer, nullable=True, default=None)
+    trend_direction = Column(String, nullable=True, default=None)
+    projected_value = Column(Float, nullable=True, default=None)
+    projection_message = Column(String, nullable=True, default=None)
+
+    # TODO(Migration): For existing databases without Alembic, run the following SQL manually:
+    # ALTER TABLE su_olcumleri ADD COLUMN trend_risk_score INTEGER;
+    # ALTER TABLE su_olcumleri ADD COLUMN trend_direction VARCHAR;
+    # ALTER TABLE su_olcumleri ADD COLUMN projected_value FLOAT;
+    # ALTER TABLE su_olcumleri ADD COLUMN projection_message VARCHAR;
+
 
 class EsikDegeri(Base):
     __tablename__ = "esik_degerleri"

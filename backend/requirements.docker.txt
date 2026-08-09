@@ -35,3 +35,6 @@ paho-mqtt==2.1.0
 firebase-admin==6.5.0
 aiosmtplib==3.0.1
 prometheus-fastapi-instrumentator
+statsmodels
+numpy
+pandas

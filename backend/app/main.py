@@ -32,7 +32,8 @@ from app.auth import (
 from app.database import DEV_DROP_RECREATE, SessionLocal, engine, get_db
 from app.engine import hesapla_anomali_durumu
 from app.llm_service import arka_planda_analiz_et
-from app.metrics import anomaly_counter
+from app.metrics import anomaly_counter, trend_risk_histogram
+from app.predictive_engine import analyze_trend
 
 
 # ---------------------------------------------------------------------------
@@ -488,6 +489,11 @@ async def read_istasyon(
 # ---------------------------------------------------------------------------
 # GIS / Harita Endpoint'leri
 # ---------------------------------------------------------------------------
+# MOBILE APP MAP VIEW INTEGRATION:
+# The mobile app should read `trend_risk_score` from the recent measurements
+# (or the GIS endpoint response, once added there).
+# Use amber markers for a score between 40-70.
+# Use red markers for a hard anomaly (risk_seviyesi == "KRİTİK") or score > 70.
 
 
 @app.get("/api/gis/istasyonlar", response_model=List[schemas.GisIstasyonResponse], tags=["GIS"])
@@ -530,6 +536,84 @@ async def get_gis_istasyonlar(
 # ---------------------------------------------------------------------------
 # Ölçüm Endpoint'leri
 # ---------------------------------------------------------------------------
+
+
+async def _apply_predictive_engine(db: AsyncSession, db_olcum: models.SuOlcumu):
+    """
+    Kural motoru sonrası, LLM narrator öncesi predictive trend analizi yapar.
+    Son 10 ölçümü alır, en yüksek risk skorunu hesaplar ve db_olcum üzerine kaydeder.
+    """
+    from sqlalchemy.future import select
+
+    from app import models
+
+    q = (
+        select(models.SuOlcumu)
+        .filter(models.SuOlcumu.istasyon_id == db_olcum.istasyon_id, models.SuOlcumu.id != db_olcum.id)
+        .order_by(models.SuOlcumu.olcum_tarihi.desc())
+        .limit(9)
+    )
+    result = await db.execute(q)
+    past_measurements = result.scalars().all()
+
+    # Kronolojik sıra (eski -> yeni) ve mevcut ölçümü ekle
+    past_measurements = list(reversed(past_measurements))
+    past_measurements.append(db_olcum)
+
+    worst_score = -1
+    best_result = None
+
+    for param in ["ph", "serbest_klor", "bulaniklik"]:
+        values = [getattr(m, param, None) for m in past_measurements]
+        if any(v is not None for v in values):
+            trend_res = analyze_trend(db_olcum.istasyon_id, param, values)
+            trend_risk_histogram.labels(parameter=param).observe(trend_res["trend_risk_score"])
+            if trend_res["trend_risk_score"] > worst_score:
+                worst_score = trend_res["trend_risk_score"]
+                best_result = trend_res
+
+    if best_result:
+        db_olcum.trend_risk_score = best_result["trend_risk_score"]
+        db_olcum.trend_direction = best_result["trend_direction"]
+        db_olcum.projected_value = best_result["projected_value"]
+        db_olcum.projection_message = best_result["projection_message"]
+
+    return db_olcum
+
+
+@app.get("/admin/trend-analysis/{istasyon_id}", tags=["Admin"])
+async def get_trend_analysis(
+    istasyon_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: models.Kullanici = Depends(require_role(["yonetici"])),
+):
+    """
+    Admin-only endpoint to get the last 10 measurements and their trend logic.
+    """
+    from sqlalchemy.future import select
+
+    from app import models
+
+    q = (
+        select(models.SuOlcumu)
+        .filter(models.SuOlcumu.istasyon_id == istasyon_id)
+        .order_by(models.SuOlcumu.olcum_tarihi.desc())
+        .limit(10)
+    )
+    result = await db.execute(q)
+    measurements = result.scalars().all()
+    return {
+        "istasyon_id": istasyon_id,
+        "measurements": [
+            {
+                "id": m.id,
+                "date": m.olcum_tarihi,
+                "trend_risk_score": m.trend_risk_score,
+                "trend_direction": m.trend_direction,
+            }
+            for m in measurements
+        ],
+    }
 
 
 @app.get("/olcumler/", response_model=List[schemas.SuOlcumuResponse], tags=["Ölçümler"])
@@ -593,6 +677,8 @@ async def create_olcum(
 
     db_olcum.risk_seviyesi = kural_motoru_sonucu.get("en_yuksek_risk_seviyesi", "NORMAL")
     anomaly_counter.labels(severity=db_olcum.risk_seviyesi.lower()).inc()
+
+    await _apply_predictive_engine(db, db_olcum)
 
     await db.commit()
     await db.refresh(db_olcum)
@@ -752,6 +838,8 @@ async def sim_tetikle(
     kural_motoru_sonucu = await hesapla_anomali_durumu(db, analiz_girdisi)
     db_olcum.risk_seviyesi = kural_motoru_sonucu.get("en_yuksek_risk_seviyesi", "NORMAL")
     anomaly_counter.labels(severity=db_olcum.risk_seviyesi.lower()).inc()
+
+    await _apply_predictive_engine(db, db_olcum)
 
     await db.commit()
     await db.refresh(db_olcum)

@@ -76,9 +76,13 @@ def _get_narrator_prompt() -> str:
         return "Sen Şanlıurfa Su ve Kanalizasyon İdaresi (ŞUSKİ) bünyesinde çalışan kıdemli bir Altyapı ve Su Kalitesi Analiz Uzmanısın."
 
 
-async def olustur_teknik_aksiyon_onerisi(olcum_id: int, anomali_raporu: dict, db) -> tuple[str, str, str]:
+async def olustur_teknik_aksiyon_onerisi(
+    olcum_id: int, anomali_raporu: dict, db, trend_data: dict = None
+) -> tuple[str, str, str]:
     """
-    Kural motoru sonucunu alarak saha personeline yönelik teknik aksiyon önerisi üretir.
+    LLM (Hybrid: OpenAI veya Ollama) çağırarak kural motoru çıktılarını
+    teknik aksiyon önerisine dönüştürür.
+    trend_data varsa proaktif tavsiyeler üretmesi sağlanır.
     """
     from sqlalchemy.future import select
 
@@ -134,6 +138,10 @@ async def olustur_teknik_aksiyon_onerisi(olcum_id: int, anomali_raporu: dict, db
     if benzer_vakalar:
         vaka_metni = "=== GEÇMİ KURUMSAL HAFIZA (Benzer Vakalar) ===\n" + "\n".join([f"- {v}" for v in benzer_vakalar])
 
+    trend_metni = ""
+    if trend_data:
+        trend_metni = f"\n=== PROAKTİF ÖNLEME (Predictive Trend) ===\nBu istasyonda yakın zamanda bir risk oluşabilir:\nTahmin: {trend_data['message']} (Trend Riski: {trend_data['score']}/100)\nLütfen reaktif değil, PROAKTİF (önleyici) bir tavsiye üret.\n"
+
     # Kullanıcı promptu — sadece mevcut veriyi içerir
     kullanici_promptu = f"""Aşağıdaki otomatik kural motoru analiz sonucunu teknik aksiyon önerisine çevir.
 
@@ -152,7 +160,7 @@ Bulanıklık: {olcum_verisi.get('bulaniklik', 'Ölçülmedi')} NTU
 Sıcaklık: {olcum_verisi.get('sicaklik', 'Ölçülmedi')} °C
 
 {vaka_metni}
-
+{trend_metni}
 === TALİMAT ===
 Yukarıdaki kural motoru çıktısına ve Geçmiş Kurumsal Hafıza'ya dayanarak saha personeli için somut, numaralı teknik aksiyon adımları oluştur.
 UNUTMA: Yeni eşik/yasal referans üretme, sadece verilen veriyi yorumla ve geçmiş hafızaya atıf yap."""
@@ -247,9 +255,21 @@ async def arka_planda_analiz_et(olcum_id: int, db_factory) -> None:
             }
             kural_motoru_sonucu = await hesapla_anomali_durumu(db, analiz_girdisi)
 
+            trend_data = None
+            if (
+                getattr(olcum, "trend_risk_score", 0)
+                and olcum.trend_risk_score >= 60
+                and olcum.risk_seviyesi not in ["ORTA", "KRİTİK"]
+            ):
+                trend_data = {
+                    "score": olcum.trend_risk_score,
+                    "direction": olcum.trend_direction,
+                    "message": olcum.projection_message,
+                }
+
             # 3. LLM narratör → aksiyon önerisi
             teknik_oneri, llm_durumu, provider = await olustur_teknik_aksiyon_onerisi(
-                olcum_id=olcum_id, anomali_raporu=kural_motoru_sonucu, db=db
+                olcum_id=olcum_id, anomali_raporu=kural_motoru_sonucu, db=db, trend_data=trend_data
             )
 
             # 4. Sonuçları DB'ye yaz — önce olcum alanları

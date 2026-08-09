@@ -33,3 +33,10 @@ mqtt_message_counter = Counter(
     "MQTT messages received, labelled by status",
     ["status"],  # valid, malformed
 )
+
+trend_risk_histogram = Histogram(
+    "su_ai_trend_risk_score",
+    "Predictive trend risk scores (0-100), labelled by parameter",
+    ["parameter"],
+    buckets=[0, 20, 40, 60, 80, 100],
+)
