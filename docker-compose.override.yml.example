@@ -1,0 +1,19 @@
+version: '3.8'
+
+# Copy this to docker-compose.override.yml for local overrides.
+# This file is ignored by git.
+
+services:
+  backend:
+    # Example: Expose additional debug ports
+    # ports:
+    #   - "5678:5678"
+    environment:
+      # Example: Enable debug logs
+      - DEBUG=True
+
+  postgres:
+    # Example: Expose DB on a different port if 5432 is taken on host
+    # ports:
+    #   - "5433:5432"
+    pass

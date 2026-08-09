@@ -15,7 +15,7 @@ pip install -r requirements-test.txt
 ### 2. Running Tests Locally
 We use an in-memory SQLite database for fast local tests.
 ```bash
-pytest --cov=app --cov-fail-under=90 tests/
+pytest --cov=app.engine --cov-fail-under=90 tests/
 ```
 
 ### 3. Running Linters

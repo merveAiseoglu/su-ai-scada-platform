@@ -3,3 +3,9 @@ venv/
 __pycache__/
 .pytest_cache/
 .coverage
+*.db
+node_modules/
+docker-compose.override.yml
+docker-compose.override.yaml
+*volume*/
+*data*/

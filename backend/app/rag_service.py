@@ -3,12 +3,19 @@ import os
 import chromadb
 from chromadb.utils import embedding_functions
 
-# Proje dizininde chroma_db klasörü
-CHROMA_DB_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "chroma_db")
 COLLECTION_NAME = "su_kriz_hafizasi"
 
-# PersistentClient (kalıcı db) oluştur
-client = chromadb.PersistentClient(path=CHROMA_DB_PATH)
+_client = None
+
+
+def get_client():
+    global _client
+    if _client is None:
+        chroma_host = os.getenv("CHROMA_HOST", "localhost")  # default to localhost for local testing
+        chroma_port = int(os.getenv("CHROMA_PORT", "8000"))
+        _client = chromadb.HttpClient(host=chroma_host, port=chroma_port)
+    return _client
+
 
 # Yerel embedding modeli (all-MiniLM-L6-v2) - OpenAI API'sine ihtiyaç duymaz,
 # internet olmadan çalışır (Zero-Trust)
@@ -17,7 +24,7 @@ default_ef = embedding_functions.DefaultEmbeddingFunction()
 
 def get_collection():
     """Koleksiyonu getirir veya yoksa oluşturur"""
-    return client.get_or_create_collection(name=COLLECTION_NAME, embedding_function=default_ef)
+    return get_client().get_or_create_collection(name=COLLECTION_NAME, embedding_function=default_ef)
 
 
 def search_rag_memory(query_text: str, n_results: int = 2) -> list[str]:

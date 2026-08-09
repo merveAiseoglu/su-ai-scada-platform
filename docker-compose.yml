@@ -1,54 +1,95 @@
 version: '3.8'
 
+networks:
+  su-ai-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  chroma_data:
+  ollama_model_cache:
+
 services:
-  db:
+  # --- Core Services ---
+  postgres:
     image: postgres:15
-    container_name: su_ai_db
+    container_name: su-ai-postgres
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: merve.6363
-      POSTGRES_DB: su_ai
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-su_ai}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - su-ai-network
     ports:
       - "5432:5432"
-    volumes:
-      - pgdata:/var/lib/postgresql/data
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d su_ai"]
-      interval: 5s
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-su_ai}"]
+      interval: 10s
       timeout: 5s
-      retries: 10
+      retries: 5
       start_period: 10s
 
+  chromadb:
+    image: chromadb/chroma:latest
+    container_name: su-ai-chromadb
+    volumes:
+      - chroma_data:/chroma/chroma
+    environment:
+      - IS_PERSISTENT=TRUE
+    networks:
+      - su-ai-network
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+
   ollama:
-    image: ollama/ollama
-    container_name: ollama
+    image: ollama/ollama:latest
+    container_name: su-ai-ollama
+    volumes:
+      - ollama_model_cache:/root/.ollama
+    networks:
+      - su-ai-network
     ports:
       - "11434:11434"
-    volumes:
-      - ollama_data:/root/.ollama
     restart: unless-stopped
 
   backend:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: su_ai_backend
-    environment:
-      - DATABASE_URL=postgresql+asyncpg://postgres:merve.6363@db:5432/su_ai
-    ports:
-      - "8000:8000"
-    depends_on:
-      db:
-        condition: service_healthy
-      ollama:
-        condition: service_started
+    container_name: su-ai-backend
     volumes:
       - ./backend:/app
-      - chroma_cache:/root/.cache/chroma
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-su_ai}
+      - CHROMA_HOST=${CHROMA_HOST:-chromadb}
+      - CHROMA_PORT=${CHROMA_PORT:-8000}
+      - OLLAMA_HOST=${OLLAMA_HOST:-ollama}
+      - OLLAMA_PORT=${OLLAMA_PORT:-11434}
+    env_file:
+      - .env
+    networks:
+      - su-ai-network
+    ports:
+      - "8080:8000" # Mapped to 8080 to avoid conflict with ChromaDB on host
     restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      chromadb:
+        condition: service_started
+      ollama:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/docs')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
 
-volumes:
-  pgdata:
-  ollama_data:
-  chroma_cache:
+  # --- Observability (Phase 1) ---
+  
+  # --- IoT/MQTT (Phase 6) ---
