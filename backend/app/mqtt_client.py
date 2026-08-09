@@ -10,6 +10,7 @@ from sqlalchemy.future import select
 from app.database import SessionLocal
 from app.engine import hesapla_anomali_durumu
 from app.llm_service import arka_planda_analiz_et
+from app.metrics import mqtt_message_counter
 from app.models import Istasyon, SuOlcumu
 from app.schemas import MqttPayload
 
@@ -81,15 +82,19 @@ def on_message(client, userdata, msg):
         raw_data = json.loads(msg.payload.decode("utf-8"))
         payload = MqttPayload(**raw_data)
         logger.info(f"[MQTT] Received valid payload for station {payload.station_id}")
+        mqtt_message_counter.labels(status="valid").inc()
 
         # Bridge to async FastAPI world
         asyncio.run(process_mqtt_payload(payload))
 
     except json.JSONDecodeError:
+        mqtt_message_counter.labels(status="malformed").inc()
         logger.error(f"[MQTT] Malformed JSON received on {msg.topic}: {msg.payload}")
     except ValidationError as e:
+        mqtt_message_counter.labels(status="malformed").inc()
         logger.error(f"[MQTT] Validation error for payload on {msg.topic}: {e.errors()}")
     except Exception as e:
+        mqtt_message_counter.labels(status="malformed").inc()
         logger.error(f"[MQTT] Unexpected error processing message on {msg.topic}: {e}")
 
 

@@ -1,0 +1,58 @@
+{
+  "title": "Su-AI Observability Overview",
+  "tags": ["su-ai", "overview"],
+  "timezone": "browser",
+  "schemaVersion": 36,
+  "refresh": "5s",
+  "panels": [
+    {
+      "title": "HTTP Request Rate",
+      "type": "timeseries",
+      "gridPos": {"x": 0, "y": 0, "w": 12, "h": 8},
+      "targets": [
+        {"expr": "sum(rate(http_requests_total[1m])) by (method, handler)", "legendFormat": "{{method}} {{handler}}"}
+      ]
+    },
+    {
+      "title": "HTTP Error Rate",
+      "type": "timeseries",
+      "gridPos": {"x": 12, "y": 0, "w": 12, "h": 8},
+      "targets": [
+        {"expr": "sum(rate(http_requests_total{status=~\"5..\"}[1m]))", "legendFormat": "5xx Errors"},
+        {"expr": "sum(rate(http_requests_total{status=~\"4..\"}[1m]))", "legendFormat": "4xx Errors"}
+      ]
+    },
+    {
+      "title": "p95 Latency",
+      "type": "timeseries",
+      "gridPos": {"x": 0, "y": 8, "w": 12, "h": 8},
+      "targets": [
+        {"expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le))", "legendFormat": "p95 Latency (s)"}
+      ]
+    },
+    {
+      "title": "Anomaly Detection Rate",
+      "type": "timeseries",
+      "gridPos": {"x": 12, "y": 8, "w": 12, "h": 8},
+      "targets": [
+        {"expr": "sum(rate(su_ai_anomaly_counter_total[5m])) by (severity)", "legendFormat": "Severity: {{severity}}"}
+      ]
+    },
+    {
+      "title": "LLM Calls & Fallback Ratio",
+      "type": "timeseries",
+      "gridPos": {"x": 0, "y": 16, "w": 12, "h": 8},
+      "targets": [
+        {"expr": "sum(rate(su_ai_llm_call_counter_total[5m])) by (provider, result)", "legendFormat": "{{provider}} - {{result}}"}
+      ]
+    },
+    {
+      "title": "LLM Judge Score Distribution",
+      "type": "timeseries",
+      "gridPos": {"x": 12, "y": 16, "w": 12, "h": 8},
+      "targets": [
+        {"expr": "sum(rate(su_ai_judge_score_distribution_sum[5m])) / sum(rate(su_ai_judge_score_distribution_count[5m]))", "legendFormat": "Avg Score (0-100)"}
+      ]
+    }
+  ]
+}

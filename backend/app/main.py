@@ -10,6 +10,7 @@ import jwt
 from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
+from prometheus_fastapi_instrumentator import Instrumentator
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
@@ -31,6 +32,7 @@ from app.auth import (
 from app.database import DEV_DROP_RECREATE, SessionLocal, engine, get_db
 from app.engine import hesapla_anomali_durumu
 from app.llm_service import arka_planda_analiz_et
+from app.metrics import anomaly_counter
 
 
 # ---------------------------------------------------------------------------
@@ -148,6 +150,9 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Prometheus auto-instrumentation
+Instrumentator().instrument(app).expose(app)
+
 limiter = Limiter(key_func=get_remote_address, default_limits=[os.getenv("GLOBAL_RATE_LIMIT", "100/minute")])
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
@@ -217,6 +222,36 @@ async def _olcum_to_response(
 @app.get("/", tags=["Genel"])
 async def read_root():
     return {"mesaj": "Su-AI API Sistemine Hoş Geldiniz", "versiyon": "4.0.0"}
+
+
+@app.get("/health", tags=["Genel"])
+async def health_check(db: AsyncSession = Depends(get_db)):
+    status = {"db": "ok", "chromadb": "ok", "ollama": "ok"}
+    try:
+        # DB check
+        await db.execute(select(1))
+    except Exception:
+        status["db"] = "degraded"
+
+    try:
+        # ChromaDB check
+        from app.rag_service import get_client
+
+        get_client().heartbeat()
+    except Exception:
+        status["chromadb"] = "degraded"
+
+    try:
+        # Ollama check (reachability via basic HTTP)
+        import urllib.request
+
+        host = os.getenv("OLLAMA_HOST", "ollama")
+        port = os.getenv("OLLAMA_PORT", "11434")
+        urllib.request.urlopen(f"http://{host}:{port}/", timeout=2)
+    except Exception:
+        status["ollama"] = "degraded"
+
+    return status
 
 
 # ---------------------------------------------------------------------------
@@ -557,6 +592,8 @@ async def create_olcum(
     kural_motoru_sonucu = await hesapla_anomali_durumu(db, analiz_girdisi)
 
     db_olcum.risk_seviyesi = kural_motoru_sonucu.get("en_yuksek_risk_seviyesi", "NORMAL")
+    anomaly_counter.labels(severity=db_olcum.risk_seviyesi.lower()).inc()
+
     await db.commit()
     await db.refresh(db_olcum)
 
@@ -714,6 +751,8 @@ async def sim_tetikle(
     analiz_girdisi = _olcum_to_analiz_girdisi(db_olcum)
     kural_motoru_sonucu = await hesapla_anomali_durumu(db, analiz_girdisi)
     db_olcum.risk_seviyesi = kural_motoru_sonucu.get("en_yuksek_risk_seviyesi", "NORMAL")
+    anomaly_counter.labels(severity=db_olcum.risk_seviyesi.lower()).inc()
+
     await db.commit()
     await db.refresh(db_olcum)
 
@@ -775,13 +814,13 @@ async def get_su_olcumu_aksiyon_onerisi(
     analiz_girdisi = _olcum_to_analiz_girdisi(olcum)
     kural_motoru_sonucu = await hesapla_anomali_durumu(db, analiz_girdisi)
 
-    teknik_oneri, llm_durumu = await olustur_teknik_aksiyon_onerisi(
+    teknik_oneri, llm_durumu, provider = await olustur_teknik_aksiyon_onerisi(
         olcum_id=id, anomali_raporu=kural_motoru_sonucu, db=db
     )
 
     # 4. Faz: LLM-as-a-Judge kalite kontrolünü arka plana at (Sıfır gecikme)
     from app.judge_service import degerlendir_llm_ciktisi
 
-    background_tasks.add_task(degerlendir_llm_ciktisi, id, kural_motoru_sonucu, teknik_oneri, SessionLocal)
+    background_tasks.add_task(degerlendir_llm_ciktisi, id, kural_motoru_sonucu, teknik_oneri, SessionLocal, provider, olcum.istasyon_id)
 
     return {"olcum_id": id, "aksiyon_onerisi": teknik_oneri, "llm_durumu": llm_durumu}

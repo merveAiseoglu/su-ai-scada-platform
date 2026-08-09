@@ -10,9 +10,12 @@ sonucunu saha personelinin anlayacağı teknik bir aksiyon planına
 
 import logging
 import os
+import time
 
 from dotenv import load_dotenv
 from openai import AsyncOpenAI
+
+from app.metrics import llm_call_counter, llm_latency_histogram
 
 load_dotenv()
 
@@ -33,22 +36,32 @@ async def _get_llm_response(messages: list, fallback_to_local: bool = True, **kw
     if has_cloud_key:
         try:
             # Bulut Denemesi
+            start_time = time.time()
             response = await cloud_client.chat.completions.create(
                 model="gpt-4o-mini", messages=messages, temperature=0.2, max_tokens=500, **kwargs
             )
+            latency = time.time() - start_time
+            llm_latency_histogram.labels(provider="openai").observe(latency)
+            llm_call_counter.labels(provider="openai", result="success").inc()
             return response.choices[0].message.content, "openai"
         except Exception as e:
+            llm_call_counter.labels(provider="openai", result="error").inc()
             logger.warning(
                 f"[HYBRID-AI] Bulut (OpenAI) başarısız oldu ({e}). Yerel Edge (Ollama) sistemine geçiliyor..."
             )
 
     # Yerel Edge (Ollama) Fallback
     try:
+        start_time = time.time()
         response = await local_client.chat.completions.create(
             model="llama3.2:1b", messages=messages, temperature=0.2, max_tokens=500, **kwargs
         )
+        latency = time.time() - start_time
+        llm_latency_histogram.labels(provider="ollama").observe(latency)
+        llm_call_counter.labels(provider="ollama", result="success").inc()
         return response.choices[0].message.content, "ollama"
     except Exception as e:
+        llm_call_counter.labels(provider="ollama", result="error").inc()
         logger.error(f"[HYBRID-AI] Yerel Edge (Ollama) de başarısız oldu: {e}")
         return "Sistem şu anda yanıt veremiyor. Lütfen IT departmanına haber verin.", "none"
 

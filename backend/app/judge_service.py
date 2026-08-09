@@ -6,6 +6,7 @@ from sqlalchemy.future import select
 
 from app import models
 from app.llm_service import _get_llm_response
+from app.metrics import judge_score_histogram
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +59,9 @@ Yukarıdaki öneriyi anomali raporuyla kıyasla, halüsinasyonları veya eksikle
         uygunluk_puani = int(sonuc_json.get("uygunluk_puani", 0))
         degerlendirme_notu = str(sonuc_json.get("degerlendirme_notu", "Parse hatası."))
         uygunluk_puani = max(0, min(100, uygunluk_puani))
+
+        # Record metric
+        judge_score_histogram.labels(prompt_version="v1").observe(uygunluk_puani)
 
     except Exception as e:
         logger.error(f"[Judge] Hata oluştu: {e}")

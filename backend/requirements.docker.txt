@@ -26,9 +26,6 @@ typing_extensions==4.16.0
 uvicorn==0.52.1
 asyncpg
 
-chromadb
-sentence-transformers
-
 PyJWT
 passlib[bcrypt]
 bcrypt==4.0.1
