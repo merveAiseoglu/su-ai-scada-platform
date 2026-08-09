@@ -1,10 +1,10 @@
-import os
-
 import logging
+import os
 
 try:
     import chromadb
     from chromadb.utils import embedding_functions
+
     CHROMA_AVAILABLE = True
 except ImportError:
     CHROMA_AVAILABLE = False

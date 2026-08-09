@@ -821,6 +821,8 @@ async def get_su_olcumu_aksiyon_onerisi(
     # 4. Faz: LLM-as-a-Judge kalite kontrolünü arka plana at (Sıfır gecikme)
     from app.judge_service import degerlendir_llm_ciktisi
 
-    background_tasks.add_task(degerlendir_llm_ciktisi, id, kural_motoru_sonucu, teknik_oneri, SessionLocal, provider, olcum.istasyon_id)
+    background_tasks.add_task(
+        degerlendir_llm_ciktisi, id, kural_motoru_sonucu, teknik_oneri, SessionLocal, provider, olcum.istasyon_id
+    )
 
     return {"olcum_id": id, "aksiyon_onerisi": teknik_oneri, "llm_durumu": llm_durumu}
