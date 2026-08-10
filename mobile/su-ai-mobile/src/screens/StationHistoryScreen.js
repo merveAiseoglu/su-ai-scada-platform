@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { VictoryChart, VictoryLine, VictoryTheme, VictoryAxis, VictoryLegend } from 'victory-native';
+import { LineChart } from 'react-native-chart-kit';
 import { getStationHistory, getTrendAnalysis } from '../services/api';
 
 export default function StationHistoryScreen({ route, navigation }) {
@@ -45,18 +45,43 @@ export default function StationHistoryScreen({ route, navigation }) {
     );
   }
 
-  // Formatting data for Victory
-  const phData = measurements.map(m => ({ x: new Date(m.olcum_tarihi), y: m.ph || 0 }));
-  const klorData = measurements.map(m => ({ x: new Date(m.olcum_tarihi), y: m.serbest_klor || 0 }));
-  const bulaniklikData = measurements.map(m => ({ x: new Date(m.olcum_tarihi), y: m.bulaniklik || 0 }));
+  // Formatting data for react-native-chart-kit
+  const pad = (n) => n.toString().padStart(2, '0');
+  const labels = measurements.map(m => {
+    const t = new Date(m.olcum_tarihi);
+    return `${pad(t.getHours())}:${pad(t.getMinutes())}`;
+  });
 
-  // Mocking forecast point since API doesn't provide `projected_value`
-  let forecastData = [];
+  const phDataArr = measurements.map(m => m.ph || 0);
+  const klorDataArr = measurements.map(m => m.serbest_klor || 0);
+  const bulaniklikDataArr = measurements.map(m => m.bulaniklik || 0);
+
+  const chartData = {
+    labels: labels.length > 6 ? labels.filter((_, i) => i % Math.ceil(labels.length / 6) === 0) : labels,
+    datasets: [
+      {
+        data: phDataArr.length > 0 ? phDataArr : [0],
+        color: (opacity = 1) => `rgba(52, 152, 219, ${opacity})`, // #3498DB
+        strokeWidth: 2
+      },
+      {
+        data: klorDataArr.length > 0 ? klorDataArr : [0],
+        color: (opacity = 1) => `rgba(155, 89, 182, ${opacity})`, // #9B59B6
+        strokeWidth: 2
+      },
+      {
+        data: bulaniklikDataArr.length > 0 ? bulaniklikDataArr : [0],
+        color: (opacity = 1) => `rgba(26, 188, 156, ${opacity})`, // #1ABC9C
+        strokeWidth: 2
+      }
+    ],
+    legend: ["pH", "Klor", "Bulanıklık"]
+  };
+
   let forecastColor = "#27AE60"; // green
   let trendMessage = "Değerler normal seyrinde devam ediyor.";
 
   if (measurements.length > 0 && trendData) {
-    const lastPoint = measurements[measurements.length - 1];
     const score = trendData.trend_risk_score || 0;
     const direction = trendData.trend_direction || "STABİL";
     
@@ -67,18 +92,6 @@ export default function StationHistoryScreen({ route, navigation }) {
        forecastColor = "#E67E22"; // amber
        trendMessage = direction === "YÜKSELİŞ" ? "Değerler yükseliş trendinde, kritik eşiğe yaklaşıyor." : "Değerler düşüş trendinde, dikkatle izlenmeli.";
     }
-
-    // Mock next point time (+2 hours)
-    const nextTime = new Date(new Date(lastPoint.olcum_tarihi).getTime() + 2 * 60 * 60 * 1000);
-    // Mock next value based on direction (we'll just use pH as the main driver for the visual dashed line since we don't know which param has the anomaly)
-    let nextValue = lastPoint.ph || 7.2;
-    if (direction === "YÜKSELİŞ") nextValue *= 1.05;
-    if (direction === "DÜŞÜŞ") nextValue *= 0.95;
-    
-    forecastData = [
-       { x: new Date(lastPoint.olcum_tarihi), y: lastPoint.ph || 0 },
-       { x: nextTime, y: nextValue }
-    ];
   }
 
   return (
@@ -94,60 +107,32 @@ export default function StationHistoryScreen({ route, navigation }) {
         <View style={styles.chartCard}>
           <Text style={styles.chartTitle}>Son Ölçüm Trendleri</Text>
           
-          <VictoryChart 
-            theme={VictoryTheme.material} 
-            height={300}
-            padding={{ top: 50, bottom: 50, left: 50, right: 30 }}
-            scale={{ x: "time" }}
-          >
-            <VictoryLegend x={50} y={10}
-              orientation="horizontal"
-              symbolSpacer={5}
-              gutter={20}
-              data={[
-                { name: "pH", symbol: { fill: "#3498DB" } },
-                { name: "Klor", symbol: { fill: "#9B59B6" } },
-                { name: "Bulanıklık", symbol: { fill: "#1ABC9C" } }
-              ]}
-            />
-            
-            <VictoryAxis 
-              tickFormat={(t) => {
-                const pad = (n) => n.toString().padStart(2, '0');
-                return `${pad(t.getHours())}:${pad(t.getMinutes())}`;
-              }}
-              style={{ tickLabels: { fontSize: 10, padding: 5 } }}
-            />
-            <VictoryAxis dependentAxis 
-              style={{ tickLabels: { fontSize: 10, padding: 5 } }}
-            />
-
-            <VictoryLine
-              data={phData}
-              style={{ data: { stroke: "#3498DB", strokeWidth: 2 } }}
-            />
-            <VictoryLine
-              data={klorData}
-              style={{ data: { stroke: "#9B59B6", strokeWidth: 2 } }}
-            />
-            <VictoryLine
-              data={bulaniklikData}
-              style={{ data: { stroke: "#1ABC9C", strokeWidth: 2 } }}
-            />
-
-            {forecastData.length > 0 && (
-              <VictoryLine
-                data={forecastData}
-                style={{ 
-                  data: { 
-                    stroke: forecastColor, 
-                    strokeWidth: 2,
-                    strokeDasharray: "5,5" 
-                  } 
-                }}
-              />
-            )}
-          </VictoryChart>
+          <LineChart
+            data={chartData}
+            width={Dimensions.get("window").width - 64} // padding considerations
+            height={220}
+            chartConfig={{
+              backgroundColor: "#FFF",
+              backgroundGradientFrom: "#FFF",
+              backgroundGradientTo: "#FFF",
+              decimalPlaces: 1,
+              color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+              labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+              style: {
+                borderRadius: 16
+              },
+              propsForDots: {
+                r: "3",
+                strokeWidth: "2",
+                stroke: "#FFF"
+              }
+            }}
+            bezier
+            style={{
+              marginVertical: 8,
+              borderRadius: 16
+            }}
+          />
         </View>
 
         <View style={[styles.trendCard, { borderLeftColor: forecastColor, borderLeftWidth: 4 }]}>
