@@ -6,11 +6,12 @@ from contextlib import asynccontextmanager
 from datetime import timedelta
 from typing import List
 
+import calendar
 import jwt
-from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Request
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Request, Response, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
-from prometheus_fastapi_instrumentator import Instrumentator
+from prometheus_fastapi_instrumentator import Instrumentator, metrics
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
@@ -34,6 +35,7 @@ from app.engine import hesapla_anomali_durumu
 from app.llm_service import arka_planda_analiz_et
 from app.metrics import anomaly_counter, trend_risk_histogram
 from app.predictive_engine import analyze_trend
+from app.report_service import generate_monthly_pdf_report
 
 
 # ---------------------------------------------------------------------------
@@ -151,8 +153,97 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+@app.get("/metrics")
+async def metrics_endpoint():
+    """Custom metrics page just in case we need it outside of Instrumentator."""
+    return {"message": "Metrics are exported at /metrics by Prometheus Instrumentator"}
+
+# ---------------------------------------------------------------------------
+# Reports Endpoint
+# ---------------------------------------------------------------------------
+@app.get("/admin/reports/monthly", tags=["Admin Reports"])
+async def get_monthly_report(
+    month: str = Query(None, description="Format YYYY-MM. Defaults to current month."),
+    db: AsyncSession = Depends(get_db),
+    current_user: models.Kullanici = Depends(require_role(["yonetici"]))
+):
+    if month is None:
+        month = _dt.datetime.now().strftime("%Y-%m")
+        
+    try:
+        year_str, month_str = month.split("-")
+        year_int, month_int = int(year_str), int(month_str)
+        # Determine start and end of month
+        _, last_day = calendar.monthrange(year_int, month_int)
+        start_date = _dt.datetime(year_int, month_int, 1)
+        end_date = _dt.datetime(year_int, month_int, last_day, 23, 59, 59)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid month format. Use YYYY-MM")
+        
+    from sqlalchemy import func
+    
+    stations_result = await db.execute(select(models.Istasyon))
+    stations = stations_result.scalars().all()
+    
+    stmt_total = (
+        select(models.SuOlcumu.istasyon_id, func.count(models.SuOlcumu.id))
+        .filter(models.SuOlcumu.olcum_tarihi >= start_date)
+        .filter(models.SuOlcumu.olcum_tarihi <= end_date)
+        .group_by(models.SuOlcumu.istasyon_id)
+    )
+    res_total = await db.execute(stmt_total)
+    totals_map = dict(res_total.all())
+    
+    stmt_anom = (
+        select(models.SuOlcumu.istasyon_id, func.count(models.SuOlcumu.id))
+        .filter(models.SuOlcumu.olcum_tarihi >= start_date)
+        .filter(models.SuOlcumu.olcum_tarihi <= end_date)
+        .filter(models.SuOlcumu.risk_seviyesi.in_(["DÜŞÜK", "ORTA", "KRİTİK"]))
+        .group_by(models.SuOlcumu.istasyon_id)
+    )
+    res_anom = await db.execute(stmt_anom)
+    anoms_map = dict(res_anom.all())
+    
+    station_stats = []
+    for st in stations:
+        t_count = totals_map.get(st.id, 0)
+        if t_count > 0:
+            a_count = anoms_map.get(st.id, 0)
+            rate = (a_count / t_count) * 100
+            station_stats.append({
+                "station_name": st.ad,
+                "total_measurements": t_count,
+                "anomaly_count": a_count,
+                "anomaly_rate": rate
+            })
+            
+    stmt_judge = (
+        select(func.avg(models.AnalizMetrikleri.uygunluk_puani))
+        .join(models.SuOlcumu, models.AnalizMetrikleri.olcum_id == models.SuOlcumu.id)
+        .filter(models.SuOlcumu.olcum_tarihi >= start_date)
+        .filter(models.SuOlcumu.olcum_tarihi <= end_date)
+    )
+    res_judge = await db.execute(stmt_judge)
+    judge_score_avg = res_judge.scalar()
+    if judge_score_avg is not None:
+        judge_score_avg = float(judge_score_avg)
+        
+    pdf_bytes = generate_monthly_pdf_report(month, station_stats, judge_score_avg)
+    
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="report_{month}.pdf"'
+        }
+    )
+
 # Prometheus auto-instrumentation
-Instrumentator().instrument(app).expose(app)
+instrumentator = Instrumentator()
+instrumentator.add(
+    metrics.latency(buckets=(0.1, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0, 120.0))
+)
+instrumentator.instrument(app).expose(app)
 
 limiter = Limiter(key_func=get_remote_address, default_limits=[os.getenv("GLOBAL_RATE_LIMIT", "100/minute")])
 app.state.limiter = limiter
@@ -563,10 +654,12 @@ async def _apply_predictive_engine(db: AsyncSession, db_olcum: models.SuOlcumu):
     worst_score = -1
     best_result = None
 
+    import asyncio
+
     for param in ["ph", "serbest_klor", "bulaniklik"]:
         values = [getattr(m, param, None) for m in past_measurements]
         if any(v is not None for v in values):
-            trend_res = analyze_trend(db_olcum.istasyon_id, param, values)
+            trend_res = await asyncio.to_thread(analyze_trend, db_olcum.istasyon_id, param, values)
             trend_risk_histogram.labels(parameter=param).observe(trend_res["trend_risk_score"])
             if trend_res["trend_risk_score"] > worst_score:
                 worst_score = trend_res["trend_risk_score"]
@@ -686,11 +779,13 @@ async def create_olcum(
     # Alert Notifications
     if db_olcum.risk_seviyesi == "KRİTİK":
         from app.notification_service import dispatch_critical_alerts
+        import asyncio
 
-        background_tasks.add_task(dispatch_critical_alerts, db_olcum.id, SessionLocal)
+        asyncio.create_task(dispatch_critical_alerts(db_olcum.id, SessionLocal))
 
     # 4. LLM görevini arka plana at — SessionLocal factory geçilir (thread-safe)
-    background_tasks.add_task(arka_planda_analiz_et, db_olcum.id, SessionLocal)
+    import asyncio
+    asyncio.create_task(arka_planda_analiz_et(db_olcum.id, SessionLocal))
 
     # 5. analiz_durumu="BEKLİYOR" ile anında dön (kural motoru detaylarını da ekle)
     return await _olcum_to_response(db_olcum, analiz_sonucu=kural_motoru_sonucu)
@@ -847,11 +942,13 @@ async def sim_tetikle(
     # Alert Notifications
     if db_olcum.risk_seviyesi == "KRİTİK":
         from app.notification_service import dispatch_critical_alerts
+        import asyncio
 
-        background_tasks.add_task(dispatch_critical_alerts, db_olcum.id, SessionLocal)
+        asyncio.create_task(dispatch_critical_alerts(db_olcum.id, SessionLocal))
 
     # LLM arka plana
-    background_tasks.add_task(arka_planda_analiz_et, db_olcum.id, SessionLocal)
+    import asyncio
+    asyncio.create_task(arka_planda_analiz_et(db_olcum.id, SessionLocal))
 
     # Durum güncelle
     _sim_durum["toplam"] += 1

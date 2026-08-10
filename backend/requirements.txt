@@ -41,3 +41,5 @@ prometheus-fastapi-instrumentator
 statsmodels
 numpy
 pandas
+weasyprint
+reportlab

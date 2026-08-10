@@ -30,3 +30,21 @@ To automatically format code before commits:
 ```bash
 pre-commit install
 ```
+
+## API Reports
+
+### Generate Monthly PDF Report
+A standalone endpoint is available to generate a monthly anomaly summary in PDF format. It uses `reportlab` to render the report dynamically from the database.
+
+**Endpoint:** `GET /admin/reports/monthly`  
+**Query Params:**
+- `month` (optional): The target month in `YYYY-MM` format. Defaults to current month.
+
+**Authentication:** Admin (`yonetici`) role is required.
+
+**Example cURL:**
+```bash
+curl -X GET "http://localhost:8080/admin/reports/monthly?month=2026-07" \
+     -H "Authorization: Bearer <ADMIN_TOKEN>" \
+     -o monthly_report.pdf
+```
