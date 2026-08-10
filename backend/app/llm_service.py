@@ -29,7 +29,14 @@ cloud_client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY", "dummy"), timeout
 local_client = AsyncOpenAI(base_url="http://ollama:11434/v1", api_key="ollama", max_retries=0, timeout=90.0)
 
 import asyncio
-llm_semaphore = asyncio.Semaphore(10)
+
+_llm_semaphore = None
+
+def get_llm_semaphore():
+    global _llm_semaphore
+    if _llm_semaphore is None:
+        _llm_semaphore = asyncio.Semaphore(10)
+    return _llm_semaphore
 
 
 async def _get_llm_response(messages: list, fallback_to_local: bool = True, **kwargs) -> tuple[str, str]:
@@ -40,8 +47,10 @@ async def _get_llm_response(messages: list, fallback_to_local: bool = True, **kw
         try:
             # Bulut Denemesi
             start_time = time.time()
+            if "temperature" not in kwargs:
+                kwargs["temperature"] = 0.2
             response = await cloud_client.chat.completions.create(
-                model="gpt-4o-mini", messages=messages, temperature=0.2, max_tokens=500, **kwargs
+                model="gpt-4o-mini", messages=messages, max_tokens=500, **kwargs
             )
             latency = time.time() - start_time
             llm_latency_histogram.labels(provider="openai").observe(latency)
@@ -56,8 +65,10 @@ async def _get_llm_response(messages: list, fallback_to_local: bool = True, **kw
     # Yerel Edge (Ollama) Fallback
     try:
         start_time = time.time()
+        if "temperature" not in kwargs:
+            kwargs["temperature"] = 0.2
         response = await local_client.chat.completions.create(
-            model="llama3.2:1b", messages=messages, temperature=0.2, max_tokens=500, **kwargs
+            model="llama3.2:1b", messages=messages, max_tokens=500, **kwargs
         )
         latency = time.time() - start_time
         llm_latency_histogram.labels(provider="ollama").observe(latency)
@@ -237,8 +248,11 @@ async def arka_planda_analiz_et(olcum_id: int, db_factory) -> None:
     from app import models
     from app.engine import hesapla_anomali_durumu
 
-    async with llm_semaphore:
+    logger.info(f"[BG-DEBUG] arka_planda_analiz_et started for olcum_id={olcum_id}")
+    async with get_llm_semaphore():
+        logger.info(f"[BG-DEBUG] Semaphore acquired for olcum_id={olcum_id}")
         async with db_factory() as db:
+            logger.info(f"[BG-DEBUG] DB session acquired for olcum_id={olcum_id}")
             try:
                 # 1. Ölçümü DB'den çek
                 result = await db.execute(select(models.SuOlcumu).filter(models.SuOlcumu.id == olcum_id))
