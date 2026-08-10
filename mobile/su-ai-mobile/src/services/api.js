@@ -191,6 +191,22 @@ export async function getSonOlcumler(limit = 20, istasyonId = null) {
   return apiRequest(path);
 }
 
+/**
+ * Son 20 ölçümü tek bir istasyon için getirir (Grafikler için)
+ * @param {number} stationId 
+ */
+export async function getStationHistory(stationId) {
+  return getSonOlcumler(20, stationId);
+}
+
+/**
+ * Admin için trend analizini getirir (Faz 4 Predictive)
+ * @param {number} stationId 
+ */
+export async function getTrendAnalysis(stationId) {
+  return apiRequest(`/admin/trend-analysis/${stationId}`);
+}
+
 // ---------------------------------------------------------------------------
 // Faz 4 — Simülatör API'leri (sadece yönetici)
 // ---------------------------------------------------------------------------

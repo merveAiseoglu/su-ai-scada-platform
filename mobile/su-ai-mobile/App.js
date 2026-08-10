@@ -11,6 +11,7 @@ import IstasyonListesiScreen from "./src/screens/IstasyonListesiScreen";
 import MeasurementFormScreen from "./src/screens/MeasurementFormScreen";
 import ResultScreen from "./src/screens/ResultScreen";
 import MapScreen from "./src/screens/MapScreen";
+import StationHistoryScreen from "./src/screens/StationHistoryScreen";
 import SimulatorScreen from "./src/screens/SimulatorScreen";
 import AuditLogScreen from "./src/screens/AuditLogScreen";
 import LoginScreen from "./src/screens/LoginScreen";
@@ -75,6 +76,11 @@ export default function App() {
             <Stack.Screen
               name="MapScreen"
               component={MapScreen}
+              options={{ animation: "slide_from_right" }}
+            />
+            <Stack.Screen
+              name="StationHistoryScreen"
+              component={StationHistoryScreen}
               options={{ animation: "slide_from_right" }}
             />
             <Stack.Screen

@@ -8,7 +8,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { getIstasyonlar, getUserInfo, logout } from "../services/api";
+import { getIstasyonlar, getUserInfo, logout, getSonOlcumler } from "../services/api";
 import { getBekleyenSayisi } from "../services/offlineStorage";
 import { useNetworkStatus } from "../hooks/useNetworkStatus";
 import { AuthContext } from "../../App";
@@ -26,11 +26,66 @@ export default function IstasyonListesiScreen({ navigation }) {
   const [bekleyenSayisi, setBekleyenSayisi] = useState(0);
   const [userInfo, setUserInfo] = useState(null);
   const { isOnline, syncDurumu, manuelSync } = useNetworkStatus();
+  const [stats, setStats] = useState({ 
+    totalAnomalies: 0, 
+    problematicStation: '-', 
+    systemStatus: 'YÜKLENİYOR...', 
+    statusColor: '#666'
+  });
 
   const istasyonlarYukle = useCallback(async () => {
     try {
       const veri = await getIstasyonlar();
       setIstasyonlar(veri);
+
+      // Fetch measurements for anomaly stats
+      try {
+        const olcumler = await getSonOlcumler(100);
+        const today = new Date().toDateString();
+        let totalAnomalies = 0;
+        const stationAnomalyCount = {};
+        let isSystemCritical = false;
+        let isSystemWarning = false;
+
+        olcumler.forEach(o => {
+          const mDate = new Date(o.olcum_tarihi).toDateString();
+          if (mDate === today) {
+             const isKritik = o.risk_seviyesi === 'KRİTİK';
+             const isOrta = o.risk_seviyesi === 'ORTA';
+             
+             if (isKritik || isOrta) {
+               totalAnomalies++;
+               stationAnomalyCount[o.istasyon_id] = (stationAnomalyCount[o.istasyon_id] || 0) + 1;
+             }
+             if (isKritik) isSystemCritical = true;
+             if (isOrta) isSystemWarning = true;
+          }
+        });
+
+        let mostProb = '-';
+        let maxCount = 0;
+        Object.keys(stationAnomalyCount).forEach(id => {
+          if (stationAnomalyCount[id] > maxCount) {
+             maxCount = stationAnomalyCount[id];
+             const st = veri.find(v => v.id.toString() === id);
+             mostProb = st ? st.ad : `ID: ${id}`;
+          }
+        });
+
+        let sysStat = "TÜMÜ NORMAL";
+        let statCol = "#27AE60";
+        if (isSystemCritical) { sysStat = "KRİTİK"; statCol = "#E74C3C"; }
+        else if (isSystemWarning || totalAnomalies > 0) { sysStat = "UYARI"; statCol = "#E67E22"; }
+
+        setStats({
+          totalAnomalies,
+          problematicStation: mostProb,
+          systemStatus: sysStat,
+          statusColor: statCol
+        });
+      } catch(e) {
+        console.error("Stats error", e);
+      }
     } catch (err) {
       if (err.message !== "NETWORK_ERROR") {
         Alert.alert("Hata", "İstasyonlar yüklenemedi: " + err.message);
@@ -147,6 +202,26 @@ export default function IstasyonListesiScreen({ navigation }) {
               <Text style={styles.syncBtnText}>⇄ {bekleyenSayisi}</Text>
             </TouchableOpacity>
           )}
+        </View>
+      </View>
+
+      {/* Anomaly Stats Card */}
+      <View style={styles.statsCard}>
+        <View style={styles.statsRow}>
+          <View style={styles.statBox}>
+            <Text style={styles.statLabel}>Bugünkü Anomaliler</Text>
+            <Text style={styles.statValue}>{stats.totalAnomalies}</Text>
+          </View>
+          <View style={styles.statBox}>
+            <Text style={styles.statLabel}>En Sorunlu İstasyon</Text>
+            <Text style={[styles.statValue, { fontSize: 13, flexShrink: 1 }]} numberOfLines={1}>{stats.problematicStation}</Text>
+          </View>
+          <View style={styles.statBox}>
+            <Text style={styles.statLabel}>Sistem Durumu</Text>
+            <View style={[styles.statusBadge, { backgroundColor: stats.statusColor }]}>
+              <Text style={styles.statusBadgeText}>{stats.systemStatus}</Text>
+            </View>
+          </View>
         </View>
       </View>
 
@@ -278,4 +353,14 @@ const styles = StyleSheet.create({
   bosIkon: { marginBottom: 8 },
   bosText: { fontSize: 18, fontWeight: "600", color: "#333333" },
   bosAlt: { fontSize: 14, color: "#666666" },
+  statsCard: {
+    backgroundColor: '#FFF', marginHorizontal: 16, marginTop: 12, borderRadius: 12,
+    padding: 12, elevation: 3, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4
+  },
+  statsRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  statBox: { flex: 1, alignItems: 'center', paddingHorizontal: 4 },
+  statLabel: { fontSize: 10, color: '#888', fontWeight: 'bold', marginBottom: 4, textAlign: 'center' },
+  statValue: { fontSize: 16, fontWeight: '700', color: '#333', textAlign: 'center' },
+  statusBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
+  statusBadgeText: { color: '#FFF', fontSize: 10, fontWeight: 'bold' }
 });

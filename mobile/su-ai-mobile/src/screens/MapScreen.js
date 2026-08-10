@@ -10,7 +10,7 @@ import {
 import MapView, { Marker } from 'react-native-maps';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
-import { getGisIstasyonlar } from '../services/api';
+import { getGisIstasyonlar, getUserInfo } from '../services/api';
 
 // ---------------------------------------------------------------------------
 // Risk → görsel eşleşme
@@ -47,6 +47,11 @@ export default function MapScreen({ navigation }) {
   const [istasyonlar, setIstasyonlar] = useState([]);
   const [yukleniyor, setYukleniyor]   = useState(true);
   const [secili, setSecili]           = useState(null); // seçili istasyon (bottom panel)
+  const [userInfo, setUserInfo]       = useState(null);
+
+  useEffect(() => {
+    getUserInfo().then(info => setUserInfo(info));
+  }, []);
 
   // Her odaklanmada yenile — simülasyon sonrası renkler güncellensin
   useFocusEffect(
@@ -137,7 +142,14 @@ export default function MapScreen({ navigation }) {
                 tracksViewChanges={false}
                 onPress={(e) => {
                   e.stopPropagation();
-                  setSecili(ist);
+                  const isAdmin = userInfo?.rol === 'yonetici';
+                  const isRiskOrtaVeyaKritik = ist.son_risk_seviyesi === 'KRİTİK' || ist.son_risk_seviyesi === 'ORTA';
+                  
+                  if (isAdmin && isRiskOrtaVeyaKritik) {
+                    navigation.navigate('StationHistoryScreen', { station_id: ist.id, station_ad: ist.ad });
+                  } else {
+                    setSecili(ist);
+                  }
                 }}
               />
             );
