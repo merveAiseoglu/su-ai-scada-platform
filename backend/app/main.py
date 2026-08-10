@@ -335,11 +335,12 @@ async def health_check(db: AsyncSession = Depends(get_db)):
 
     try:
         # Ollama check (reachability via basic HTTP)
-        import urllib.request
+        import httpx
 
         host = os.getenv("OLLAMA_HOST", "ollama")
         port = os.getenv("OLLAMA_PORT", "11434")
-        urllib.request.urlopen(f"http://{host}:{port}/", timeout=2)
+        async with httpx.AsyncClient(timeout=2) as client:
+            await client.get(f"http://{host}:{port}/")
     except Exception:
         status["ollama"] = "degraded"
 
