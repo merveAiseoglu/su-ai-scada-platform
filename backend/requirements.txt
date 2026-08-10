@@ -43,3 +43,5 @@ numpy
 pandas
 weasyprint
 reportlab
+
+chromadb
