@@ -36,6 +36,7 @@ from app.llm_service import arka_planda_analiz_et
 from app.metrics import anomaly_counter, trend_risk_histogram
 from app.predictive_engine import analyze_trend
 from app.report_service import generate_monthly_pdf_report
+from app.tasks import fire_and_forget
 
 
 # ---------------------------------------------------------------------------
@@ -780,13 +781,10 @@ async def create_olcum(
     # Alert Notifications
     if db_olcum.risk_seviyesi == "KRİTİK":
         from app.notification_service import dispatch_critical_alerts
-        import asyncio
-
-        asyncio.create_task(dispatch_critical_alerts(db_olcum.id, SessionLocal))
+        fire_and_forget(dispatch_critical_alerts(db_olcum.id, SessionLocal))
 
     # 4. LLM görevini arka plana at — SessionLocal factory geçilir (thread-safe)
-    import asyncio
-    asyncio.create_task(arka_planda_analiz_et(db_olcum.id, SessionLocal))
+    fire_and_forget(arka_planda_analiz_et(db_olcum.id, SessionLocal))
 
     # 5. analiz_durumu="BEKLİYOR" ile anında dön (kural motoru detaylarını da ekle)
     return await _olcum_to_response(db_olcum, analiz_sonucu=kural_motoru_sonucu)
@@ -943,13 +941,10 @@ async def sim_tetikle(
     # Alert Notifications
     if db_olcum.risk_seviyesi == "KRİTİK":
         from app.notification_service import dispatch_critical_alerts
-        import asyncio
+        fire_and_forget(dispatch_critical_alerts(db_olcum.id, SessionLocal))
 
-        asyncio.create_task(dispatch_critical_alerts(db_olcum.id, SessionLocal))
-
-    # LLM arka plana
-    import asyncio
-    asyncio.create_task(arka_planda_analiz_et(db_olcum.id, SessionLocal))
+    # Arka plan LLM/Trend analizi (Bu da ~5-6 sn sürer, async yapıyoruz)
+    fire_and_forget(arka_planda_analiz_et(db_olcum.id, SessionLocal))
 
     # Durum güncelle
     _sim_durum["toplam"] += 1

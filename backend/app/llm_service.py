@@ -28,6 +28,9 @@ logger = logging.getLogger(__name__)
 cloud_client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY", "dummy"), timeout=15.0)
 local_client = AsyncOpenAI(base_url="http://ollama:11434/v1", api_key="ollama", max_retries=0, timeout=90.0)
 
+import asyncio
+llm_semaphore = asyncio.Semaphore(10)
+
 
 async def _get_llm_response(messages: list, fallback_to_local: bool = True, **kwargs) -> tuple[str, str]:
     """Hybrid LLM Çağrısı: Önce bulutu dener, hata alırsa yerele (Edge) düşer. Tuple(icerik, provider) doner."""
@@ -234,70 +237,70 @@ async def arka_planda_analiz_et(olcum_id: int, db_factory) -> None:
     from app import models
     from app.engine import hesapla_anomali_durumu
 
-    async with db_factory() as db:
-        try:
-            # 1. Ölçümü DB'den çek
-            result = await db.execute(select(models.SuOlcumu).filter(models.SuOlcumu.id == olcum_id))
-            olcum = result.scalars().first()
-            if not olcum:
-                logger.error(f"[BG] Ölçüm bulunamadı: id={olcum_id}")
-                return
-
-            logger.info(f"[BG] Analiz başlatıldı: ölçüm id={olcum_id}")
-
-            # 2. Kural motorunu çalıştır
-            analiz_girdisi = {
-                "ph": olcum.ph,
-                "serbest_klor": olcum.serbest_klor,
-                "bulaniklik": olcum.bulaniklik,
-                "iletkenlik": olcum.iletkenlik,
-                "sicaklik": olcum.sicaklik,
-            }
-            kural_motoru_sonucu = await hesapla_anomali_durumu(db, analiz_girdisi)
-
-            trend_data = None
-            if (
-                getattr(olcum, "trend_risk_score", 0)
-                and olcum.trend_risk_score >= 60
-                and olcum.risk_seviyesi not in ["ORTA", "KRİTİK"]
-            ):
-                trend_data = {
-                    "score": olcum.trend_risk_score,
-                    "direction": olcum.trend_direction,
-                    "message": olcum.projection_message,
-                }
-
-            # 3. LLM narratör → aksiyon önerisi
-            teknik_oneri, llm_durumu, provider = await olustur_teknik_aksiyon_onerisi(
-                olcum_id=olcum_id, anomali_raporu=kural_motoru_sonucu, db=db, trend_data=trend_data
-            )
-
-            # 4. Sonuçları DB'ye yaz — önce olcum alanları
-            olcum.risk_seviyesi = kural_motoru_sonucu.get("en_yuksek_risk_seviyesi", "NORMAL")
-            olcum.aksiyon_onerisi = teknik_oneri
-            olcum.analiz_durumu = "TAMAMLANDI"
-            await db.commit()
-
-            logger.info(f"[BG] Tamamlandi: id={olcum_id} | " f"risk={olcum.risk_seviyesi} | llm={llm_durumu}")
-
-            # 5. LLM-as-a-Judge → Bu DB commit edildikten sonra çalışsın (DB çakışması olmasın diye db_factory geçilir)
-            import asyncio
-
-            from app.judge_service import degerlendir_llm_ciktisi
-
-            asyncio.create_task(
-                degerlendir_llm_ciktisi(
-                    olcum_id, kural_motoru_sonucu, teknik_oneri, db_factory, provider, olcum.istasyon_id
-                )
-            )
-
-        except Exception as e:
-            logger.error(f"[BG] Beklenmeyen hata (id={olcum_id}): {e}", exc_info=True)
+    async with llm_semaphore:
+        async with db_factory() as db:
             try:
+                # 1. Ölçümü DB'den çek
                 result = await db.execute(select(models.SuOlcumu).filter(models.SuOlcumu.id == olcum_id))
                 olcum = result.scalars().first()
-                if olcum:
-                    olcum.analiz_durumu = "HATA"
-                    await db.commit()
-            except Exception as commit_err:
-                logger.error(f"[BG] HATA durumu yazılamadı: {commit_err}")
+                if not olcum:
+                    logger.error(f"[BG] Ölçüm bulunamadı: id={olcum_id}")
+                    return
+
+                logger.info(f"[BG] Analiz başlatıldı: ölçüm id={olcum_id}")
+
+                # 2. Kural motorunu çalıştır
+                analiz_girdisi = {
+                    "ph": olcum.ph,
+                    "serbest_klor": olcum.serbest_klor,
+                    "bulaniklik": olcum.bulaniklik,
+                    "iletkenlik": olcum.iletkenlik,
+                    "sicaklik": olcum.sicaklik,
+                }
+                kural_motoru_sonucu = await hesapla_anomali_durumu(db, analiz_girdisi)
+
+                trend_data = None
+                if (
+                    getattr(olcum, "trend_risk_score", 0)
+                    and olcum.trend_risk_score >= 60
+                    and olcum.risk_seviyesi not in ["ORTA", "KRİTİK"]
+                ):
+                    trend_data = {
+                        "score": olcum.trend_risk_score,
+                        "direction": olcum.trend_direction,
+                        "message": olcum.projection_message,
+                    }
+
+                # 3. LLM narratör → aksiyon önerisi
+                teknik_oneri, llm_durumu, provider = await olustur_teknik_aksiyon_onerisi(
+                    olcum_id=olcum_id, anomali_raporu=kural_motoru_sonucu, db=db, trend_data=trend_data
+                )
+
+                # 4. Sonuçları DB'ye yaz — önce olcum alanları
+                olcum.risk_seviyesi = kural_motoru_sonucu.get("en_yuksek_risk_seviyesi", "NORMAL")
+                olcum.aksiyon_onerisi = teknik_oneri
+                olcum.analiz_durumu = "TAMAMLANDI"
+                await db.commit()
+
+                logger.info(f"[BG] Tamamlandi: id={olcum_id} | " f"risk={olcum.risk_seviyesi} | llm={llm_durumu}")
+
+                # 5. LLM-as-a-Judge → Bu DB commit edildikten sonra çalışsın (DB çakışması olmasın diye db_factory geçilir)
+                from app.judge_service import degerlendir_llm_ciktisi
+                from app.tasks import fire_and_forget
+
+                fire_and_forget(
+                    degerlendir_llm_ciktisi(
+                        olcum_id, kural_motoru_sonucu, teknik_oneri, db_factory, provider, olcum.istasyon_id
+                    )
+                )
+
+            except Exception as e:
+                logger.error(f"[BG] Beklenmeyen hata (id={olcum_id}): {e}", exc_info=True)
+                try:
+                    result = await db.execute(select(models.SuOlcumu).filter(models.SuOlcumu.id == olcum_id))
+                    olcum = result.scalars().first()
+                    if olcum:
+                        olcum.analiz_durumu = "HATA"
+                        await db.commit()
+                except Exception as commit_err:
+                    logger.error(f"[BG] HATA durumu yazılamadı: {commit_err}")

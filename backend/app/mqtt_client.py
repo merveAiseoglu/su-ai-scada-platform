@@ -62,8 +62,9 @@ async def process_mqtt_payload(payload: MqttPayload):
         # Alert Notifications
         if db_olcum.risk_seviyesi == "KRİTİK":
             from app.notification_service import dispatch_critical_alerts
+            from app.tasks import fire_and_forget
 
-            asyncio.create_task(dispatch_critical_alerts(olcum_id, SessionLocal))
+            fire_and_forget(dispatch_critical_alerts(olcum_id, SessionLocal))
 
     # 4. Trigger LLM Analysis Background Task
     # We await it here since we are inside a dedicated asyncio.run() loop for this message.
