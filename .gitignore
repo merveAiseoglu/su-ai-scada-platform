@@ -15,3 +15,5 @@ chroma_db/
 *.pdf
 backup*.sql
 metrics*.txt
+
+*_logs.txt
