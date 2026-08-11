@@ -1,0 +1,1341 @@
+{
+	"@programName": "ZAP",
+	"@version": "2.17.0",
+	"@generated": "Tue, 11 Aug 2026 16:02:48",
+	"created": "2026-08-11T16:02:48.018506930Z",
+	"insights":[
+		{
+			"level": "Low",
+			"reason": "Warning",
+			"site": "",
+			"key": "insight.log.warn",
+			"description": "ZAP warnings logged - see the zap.log file for details",
+			"statistic": "1"
+		},
+		{
+			"level": "Low",
+			"reason": "Exceeded High",
+			"site": "http://su-ai-backend:8000",
+			"key": "insight.code.4xx",
+			"description": "Percentage of responses with status code 4xx",
+			"statistic": "98"
+		},
+		{
+			"level": "Info",
+			"reason": "Informational",
+			"site": "http://su-ai-backend:8000",
+			"key": "insight.code.2xx",
+			"description": "Percentage of responses with status code 2xx",
+			"statistic": "1"
+		},
+		{
+			"level": "Info",
+			"reason": "Informational",
+			"site": "http://su-ai-backend:8000",
+			"key": "insight.code.3xx",
+			"description": "Percentage of responses with status code 3xx",
+			"statistic": "1"
+		},
+		{
+			"level": "Info",
+			"reason": "Informational",
+			"site": "http://su-ai-backend:8000",
+			"key": "insight.endpoint.ctype.application/json",
+			"description": "Percentage of endpoints with content type application/json",
+			"statistic": "99"
+		},
+		{
+			"level": "Info",
+			"reason": "Informational",
+			"site": "http://su-ai-backend:8000",
+			"key": "insight.endpoint.method.GET",
+			"description": "Percentage of endpoints with method GET",
+			"statistic": "80"
+		},
+		{
+			"level": "Info",
+			"reason": "Informational",
+			"site": "http://su-ai-backend:8000",
+			"key": "insight.endpoint.method.PATCH",
+			"description": "Percentage of endpoints with method PATCH",
+			"statistic": "1"
+		},
+		{
+			"level": "Info",
+			"reason": "Informational",
+			"site": "http://su-ai-backend:8000",
+			"key": "insight.endpoint.method.POST",
+			"description": "Percentage of endpoints with method POST",
+			"statistic": "18"
+		},
+		{
+			"level": "Info",
+			"reason": "Informational",
+			"site": "http://su-ai-backend:8000",
+			"key": "insight.endpoint.total",
+			"description": "Count of total endpoints",
+			"statistic": "105"
+		},
+		{
+			"level": "Info",
+			"reason": "Informational",
+			"site": "http://su-ai-backend:8000",
+			"key": "insight.response.slow",
+			"description": "Percentage of slow responses",
+			"statistic": "1"
+		}
+	],
+	"site":[ 
+		{
+			"@name": "http://su-ai-backend:8000",
+			"@host": "su-ai-backend",
+			"@port": "8000",
+			"@ssl": "false",
+			"alerts": [ 
+				{
+					"pluginid": "100000",
+					"alertRef": "100000-2",
+					"alert": "A Server Error response code was returned by the server",
+					"name": "A Server Error response code was returned by the server",
+					"riskcode": "1",
+					"confidence": "3",
+					"riskdesc": "Low (High)",
+					"desc": "<p>A response code of 500 was returned by the server.</p><p>This may indicate that the application is failing to handle unexpected input correctly.</p><p>Raised by the 'Alert on HTTP Response Code Error' script</p>",
+					"instances":[ 
+						{
+							"id": "4505",
+							"uri": "http://su-ai-backend:8000/logout",
+							"nodeName": "http:\/\/su-ai-backend:8000\/logout",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "500",
+							"otherinfo": ""
+						},
+						{
+							"id": "4509",
+							"uri": "http://su-ai-backend:8000/logout/",
+							"nodeName": "http:\/\/su-ai-backend:8000\/logout\/",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "500",
+							"otherinfo": ""
+						}
+					],
+					"count": "2",
+					"systemic": false,
+					"solution": "",
+					"otherinfo": "",
+					"reference": "",
+					"cweid": "388",
+					"wascid": "20",
+					"sourceid": "4590"
+				},
+				{
+					"pluginid": "90004",
+					"alertRef": "90004-1",
+					"alert": "Cross-Origin-Resource-Policy Header Missing or Invalid",
+					"name": "Cross-Origin-Resource-Policy Header Missing or Invalid",
+					"riskcode": "1",
+					"confidence": "2",
+					"riskdesc": "Low (Medium)",
+					"desc": "<p>Cross-Origin-Resource-Policy header is an opt-in header designed to counter side-channels attacks like Spectre. Resource should be specifically set as shareable amongst different origins.</p>",
+					"instances":[ 
+						{
+							"id": "17",
+							"uri": "http://su-ai-backend:8000/",
+							"nodeName": "http:\/\/su-ai-backend:8000\/",
+							"method": "GET",
+							"param": "Cross-Origin-Resource-Policy",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "20",
+							"uri": "http://su-ai-backend:8000/health",
+							"nodeName": "http:\/\/su-ai-backend:8000\/health",
+							"method": "GET",
+							"param": "Cross-Origin-Resource-Policy",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "15",
+							"uri": "http://su-ai-backend:8000/metrics",
+							"nodeName": "http:\/\/su-ai-backend:8000\/metrics",
+							"method": "GET",
+							"param": "Cross-Origin-Resource-Policy",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "2",
+							"uri": "http://su-ai-backend:8000/openapi.json",
+							"nodeName": "http:\/\/su-ai-backend:8000\/openapi.json",
+							"method": "GET",
+							"param": "Cross-Origin-Resource-Policy",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "30",
+							"uri": "http://su-ai-backend:8000/logout",
+							"nodeName": "http:\/\/su-ai-backend:8000\/logout",
+							"method": "POST",
+							"param": "Cross-Origin-Resource-Policy",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						}
+					],
+					"count": "5",
+					"systemic": false,
+					"solution": "<p>Ensure that the application/web server sets the Cross-Origin-Resource-Policy header appropriately, and that it sets the Cross-Origin-Resource-Policy header to 'same-origin' for all web pages.</p><p>'same-site' is considered as less secured and should be avoided.</p><p>If resources must be shared, set the header to 'cross-origin'.</p><p>If possible, ensure that the end user uses a standards-compliant and modern web browser that supports the Cross-Origin-Resource-Policy header (https://caniuse.com/mdn-http_headers_cross-origin-resource-policy).</p>",
+					"otherinfo": "",
+					"reference": "<p>https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Cross-Origin-Embedder-Policy</p>",
+					"cweid": "693",
+					"wascid": "14",
+					"sourceid": "7"
+				},
+				{
+					"pluginid": "100000",
+					"alertRef": "100000-1",
+					"alert": "A Client Error response code was returned by the server",
+					"name": "A Client Error response code was returned by the server",
+					"riskcode": "0",
+					"confidence": "3",
+					"riskdesc": "Informational (High)",
+					"desc": "<p>A response code of 404 was returned by the server.</p><p>This may indicate that the application is failing to handle unexpected input correctly.</p><p>Raised by the 'Alert on HTTP Response Code Error' script</p>",
+					"instances":[ 
+						{
+							"id": "40",
+							"uri": "http://su-ai-backend:8000/5166424332940772386",
+							"nodeName": "http:\/\/su-ai-backend:8000\/5166424332940772386",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "218",
+							"uri": "http://su-ai-backend:8000/admin",
+							"nodeName": "http:\/\/su-ai-backend:8000\/admin",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "4508",
+							"uri": "http://su-ai-backend:8000/admin/",
+							"nodeName": "http:\/\/su-ai-backend:8000\/admin\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "41",
+							"uri": "http://su-ai-backend:8000/admin/4966850200248429024",
+							"nodeName": "http:\/\/su-ai-backend:8000\/admin\/4966850200248429024",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "222",
+							"uri": "http://su-ai-backend:8000/admin/llmops",
+							"nodeName": "http:\/\/su-ai-backend:8000\/admin\/llmops",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "4511",
+							"uri": "http://su-ai-backend:8000/admin/llmops/",
+							"nodeName": "http:\/\/su-ai-backend:8000\/admin\/llmops\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "42",
+							"uri": "http://su-ai-backend:8000/admin/llmops/4405235737299721804",
+							"nodeName": "http:\/\/su-ai-backend:8000\/admin\/llmops\/4405235737299721804",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "5",
+							"uri": "http://su-ai-backend:8000/admin/llmops/dashboard",
+							"nodeName": "http:\/\/su-ai-backend:8000\/admin\/llmops\/dashboard",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "4518",
+							"uri": "http://su-ai-backend:8000/admin/llmops/dashboard/",
+							"nodeName": "http:\/\/su-ai-backend:8000\/admin\/llmops\/dashboard\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "231",
+							"uri": "http://su-ai-backend:8000/admin/organizations",
+							"nodeName": "http:\/\/su-ai-backend:8000\/admin\/organizations",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "405",
+							"otherinfo": ""
+						},
+						{
+							"id": "4517",
+							"uri": "http://su-ai-backend:8000/admin/organizations/",
+							"nodeName": "http:\/\/su-ai-backend:8000\/admin\/organizations\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "405",
+							"otherinfo": ""
+						},
+						{
+							"id": "43",
+							"uri": "http://su-ai-backend:8000/admin/organizations/6462824010974875397",
+							"nodeName": "http:\/\/su-ai-backend:8000\/admin\/organizations\/6462824010974875397",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "235",
+							"uri": "http://su-ai-backend:8000/admin/organizations/org_id",
+							"nodeName": "http:\/\/su-ai-backend:8000\/admin\/organizations\/org_id",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "4519",
+							"uri": "http://su-ai-backend:8000/admin/organizations/org_id/",
+							"nodeName": "http:\/\/su-ai-backend:8000\/admin\/organizations\/org_id\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "44",
+							"uri": "http://su-ai-backend:8000/admin/organizations/org_id/7711261123191383983",
+							"nodeName": "http:\/\/su-ai-backend:8000\/admin\/organizations\/org_id\/7711261123191383983",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "237",
+							"uri": "http://su-ai-backend:8000/admin/reports",
+							"nodeName": "http:\/\/su-ai-backend:8000\/admin\/reports",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "4520",
+							"uri": "http://su-ai-backend:8000/admin/reports/",
+							"nodeName": "http:\/\/su-ai-backend:8000\/admin\/reports\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "45",
+							"uri": "http://su-ai-backend:8000/admin/reports/5604600822578680653",
+							"nodeName": "http:\/\/su-ai-backend:8000\/admin\/reports\/5604600822578680653",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "4524",
+							"uri": "http://su-ai-backend:8000/admin/reports/monthly",
+							"nodeName": "http:\/\/su-ai-backend:8000\/admin\/reports\/monthly",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "0",
+							"uri": "http://su-ai-backend:8000/admin/reports/monthly?month=month",
+							"nodeName": "http:\/\/su-ai-backend:8000\/admin\/reports\/monthly (month)",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "400",
+							"otherinfo": ""
+						},
+						{
+							"id": "245",
+							"uri": "http://su-ai-backend:8000/admin/reports/monthly?month=http%3A%2F%2Fwww.google.com%2F",
+							"nodeName": "http:\/\/su-ai-backend:8000\/admin\/reports\/monthly (month)",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "4525",
+							"uri": "http://su-ai-backend:8000/admin/reports/monthly/",
+							"nodeName": "http:\/\/su-ai-backend:8000\/admin\/reports\/monthly\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "243",
+							"uri": "http://su-ai-backend:8000/admin/trend-analysis",
+							"nodeName": "http:\/\/su-ai-backend:8000\/admin\/trend-analysis",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "4522",
+							"uri": "http://su-ai-backend:8000/admin/trend-analysis/",
+							"nodeName": "http:\/\/su-ai-backend:8000\/admin\/trend-analysis\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "12",
+							"uri": "http://su-ai-backend:8000/admin/trend-analysis/10",
+							"nodeName": "http:\/\/su-ai-backend:8000\/admin\/trend-analysis\/10",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "4529",
+							"uri": "http://su-ai-backend:8000/admin/trend-analysis/10/",
+							"nodeName": "http:\/\/su-ai-backend:8000\/admin\/trend-analysis\/10\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "46",
+							"uri": "http://su-ai-backend:8000/admin/trend-analysis/7930933430030377077",
+							"nodeName": "http:\/\/su-ai-backend:8000\/admin\/trend-analysis\/7930933430030377077",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "269",
+							"uri": "http://su-ai-backend:8000/admin/users",
+							"nodeName": "http:\/\/su-ai-backend:8000\/admin\/users",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "4526",
+							"uri": "http://su-ai-backend:8000/admin/users/",
+							"nodeName": "http:\/\/su-ai-backend:8000\/admin\/users\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "272",
+							"uri": "http://su-ai-backend:8000/admin/users/10",
+							"nodeName": "http:\/\/su-ai-backend:8000\/admin\/users\/10",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "4530",
+							"uri": "http://su-ai-backend:8000/admin/users/10/",
+							"nodeName": "http:\/\/su-ai-backend:8000\/admin\/users\/10\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "48",
+							"uri": "http://su-ai-backend:8000/admin/users/10/3880197767113482618",
+							"nodeName": "http:\/\/su-ai-backend:8000\/admin\/users\/10\/3880197767113482618",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "47",
+							"uri": "http://su-ai-backend:8000/admin/users/8385524370773034775",
+							"nodeName": "http:\/\/su-ai-backend:8000\/admin\/users\/8385524370773034775",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "280",
+							"uri": "http://su-ai-backend:8000/api",
+							"nodeName": "http:\/\/su-ai-backend:8000\/api",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "4533",
+							"uri": "http://su-ai-backend:8000/api/",
+							"nodeName": "http:\/\/su-ai-backend:8000\/api\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "49",
+							"uri": "http://su-ai-backend:8000/api/3785200080879803186",
+							"nodeName": "http:\/\/su-ai-backend:8000\/api\/3785200080879803186",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "284",
+							"uri": "http://su-ai-backend:8000/api/gis",
+							"nodeName": "http:\/\/su-ai-backend:8000\/api\/gis",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "4534",
+							"uri": "http://su-ai-backend:8000/api/gis/",
+							"nodeName": "http:\/\/su-ai-backend:8000\/api\/gis\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "50",
+							"uri": "http://su-ai-backend:8000/api/gis/5177650376793647498",
+							"nodeName": "http:\/\/su-ai-backend:8000\/api\/gis\/5177650376793647498",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "11",
+							"uri": "http://su-ai-backend:8000/api/gis/istasyonlar",
+							"nodeName": "http:\/\/su-ai-backend:8000\/api\/gis\/istasyonlar",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "4538",
+							"uri": "http://su-ai-backend:8000/api/gis/istasyonlar/",
+							"nodeName": "http:\/\/su-ai-backend:8000\/api\/gis\/istasyonlar\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "291",
+							"uri": "http://su-ai-backend:8000/api/sim",
+							"nodeName": "http:\/\/su-ai-backend:8000\/api\/sim",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "4536",
+							"uri": "http://su-ai-backend:8000/api/sim/",
+							"nodeName": "http:\/\/su-ai-backend:8000\/api\/sim\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "51",
+							"uri": "http://su-ai-backend:8000/api/sim/1138331302245786820",
+							"nodeName": "http:\/\/su-ai-backend:8000\/api\/sim\/1138331302245786820",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "31",
+							"uri": "http://su-ai-backend:8000/api/sim/durum",
+							"nodeName": "http:\/\/su-ai-backend:8000\/api\/sim\/durum",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "4541",
+							"uri": "http://su-ai-backend:8000/api/sim/durum/",
+							"nodeName": "http:\/\/su-ai-backend:8000\/api\/sim\/durum\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "4487",
+							"uri": "http://su-ai-backend:8000/audit-logs/",
+							"nodeName": "http:\/\/su-ai-backend:8000\/audit-logs\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "28",
+							"uri": "http://su-ai-backend:8000/audit-logs/?limit=100&islem_tipi=",
+							"nodeName": "http:\/\/su-ai-backend:8000\/audit-logs\/ (islem_tipi,limit)",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "52",
+							"uri": "http://su-ai-backend:8000/audit-logs/7922900870511415266",
+							"nodeName": "http:\/\/su-ai-backend:8000\/audit-logs\/7922900870511415266",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "3354",
+							"uri": "http://su-ai-backend:8000/computeMetadata/v1/?istasyon_id=&limit=20",
+							"nodeName": "http:\/\/su-ai-backend:8000\/computeMetadata\/v1\/ (istasyon_id,limit)",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "4486",
+							"uri": "http://su-ai-backend:8000/istasyonlar/",
+							"nodeName": "http:\/\/su-ai-backend:8000\/istasyonlar\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8",
+							"uri": "http://su-ai-backend:8000/istasyonlar/?skip=0&limit=100",
+							"nodeName": "http:\/\/su-ai-backend:8000\/istasyonlar\/ (limit,skip)",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "10",
+							"uri": "http://su-ai-backend:8000/istasyonlar/10",
+							"nodeName": "http:\/\/su-ai-backend:8000\/istasyonlar\/10",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "4544",
+							"uri": "http://su-ai-backend:8000/istasyonlar/10/",
+							"nodeName": "http:\/\/su-ai-backend:8000\/istasyonlar\/10\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "53",
+							"uri": "http://su-ai-backend:8000/istasyonlar/2759962391556323093",
+							"nodeName": "http:\/\/su-ai-backend:8000\/istasyonlar\/2759962391556323093",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "3352",
+							"uri": "http://su-ai-backend:8000/latest/meta-data/?istasyon_id=&limit=20",
+							"nodeName": "http:\/\/su-ai-backend:8000\/latest\/meta-data\/ (istasyon_id,limit)",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "3379",
+							"uri": "http://su-ai-backend:8000/metadata/instance?istasyon_id=&limit=20",
+							"nodeName": "http:\/\/su-ai-backend:8000\/metadata\/instance (istasyon_id,limit)",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "3381",
+							"uri": "http://su-ai-backend:8000/metadata/v1?istasyon_id=&limit=20",
+							"nodeName": "http:\/\/su-ai-backend:8000\/metadata\/v1 (istasyon_id,limit)",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "4485",
+							"uri": "http://su-ai-backend:8000/olcumler/",
+							"nodeName": "http:\/\/su-ai-backend:8000\/olcumler\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "19",
+							"uri": "http://su-ai-backend:8000/olcumler/?istasyon_id=&limit=20",
+							"nodeName": "http:\/\/su-ai-backend:8000\/olcumler\/ (istasyon_id,limit)",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "24",
+							"uri": "http://su-ai-backend:8000/olcumler/10",
+							"nodeName": "http:\/\/su-ai-backend:8000\/olcumler\/10",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "4546",
+							"uri": "http://su-ai-backend:8000/olcumler/10/",
+							"nodeName": "http:\/\/su-ai-backend:8000\/olcumler\/10\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "54",
+							"uri": "http://su-ai-backend:8000/olcumler/1687292822578383454",
+							"nodeName": "http:\/\/su-ai-backend:8000\/olcumler\/1687292822578383454",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "5120",
+							"uri": "http://su-ai-backend:8000/olcumler/actuator/health",
+							"nodeName": "http:\/\/su-ai-backend:8000\/olcumler\/actuator\/health",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "312",
+							"uri": "http://su-ai-backend:8000/olcumler/%7Bolcum_id%7D",
+							"nodeName": "http:\/\/su-ai-backend:8000\/olcumler\/{olcum_id}",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "4556",
+							"uri": "http://su-ai-backend:8000/olcumler/%7Bolcum_id%7D/",
+							"nodeName": "http:\/\/su-ai-backend:8000\/olcumler\/{olcum_id}\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "55",
+							"uri": "http://su-ai-backend:8000/olcumler/%7Bolcum_id%7D/3757348338186786986",
+							"nodeName": "http:\/\/su-ai-backend:8000\/olcumler\/{olcum_id}\/3757348338186786986",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "4551",
+							"uri": "http://su-ai-backend:8000/olcumler/%7Bolcum_id%7D/aksiyon-onerisi",
+							"nodeName": "http:\/\/su-ai-backend:8000\/olcumler\/{olcum_id}\/aksiyon-onerisi",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "37",
+							"uri": "http://su-ai-backend:8000/olcumler/%7Bolcum_id%7D/aksiyon-onerisi?id=10",
+							"nodeName": "http:\/\/su-ai-backend:8000\/olcumler\/{olcum_id}\/aksiyon-onerisi (id)",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "4553",
+							"uri": "http://su-ai-backend:8000/olcumler/%7Bolcum_id%7D/aksiyon-onerisi/",
+							"nodeName": "http:\/\/su-ai-backend:8000\/olcumler\/{olcum_id}\/aksiyon-onerisi\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "3362",
+							"uri": "http://su-ai-backend:8000/opc/v1/instance/?istasyon_id=&limit=20",
+							"nodeName": "http:\/\/su-ai-backend:8000\/opc\/v1\/instance\/ (istasyon_id,limit)",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "3364",
+							"uri": "http://su-ai-backend:8000/opc/v2/instance/?istasyon_id=&limit=20",
+							"nodeName": "http:\/\/su-ai-backend:8000\/opc\/v2\/instance\/ (istasyon_id,limit)",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "3383",
+							"uri": "http://su-ai-backend:8000/openstack/latest/meta_data.json?istasyon_id=&limit=20",
+							"nodeName": "http:\/\/su-ai-backend:8000\/openstack\/latest\/meta_data.json (istasyon_id,limit)",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "317",
+							"uri": "http://su-ai-backend:8000/su-olcumu",
+							"nodeName": "http:\/\/su-ai-backend:8000\/su-olcumu",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "405",
+							"otherinfo": ""
+						},
+						{
+							"id": "4555",
+							"uri": "http://su-ai-backend:8000/su-olcumu/",
+							"nodeName": "http:\/\/su-ai-backend:8000\/su-olcumu\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "405",
+							"otherinfo": ""
+						},
+						{
+							"id": "323",
+							"uri": "http://su-ai-backend:8000/su-olcumu/10",
+							"nodeName": "http:\/\/su-ai-backend:8000\/su-olcumu\/10",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "4557",
+							"uri": "http://su-ai-backend:8000/su-olcumu/10/",
+							"nodeName": "http:\/\/su-ai-backend:8000\/su-olcumu\/10\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "57",
+							"uri": "http://su-ai-backend:8000/su-olcumu/10/4646680831810231449",
+							"nodeName": "http:\/\/su-ai-backend:8000\/su-olcumu\/10\/4646680831810231449",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "35",
+							"uri": "http://su-ai-backend:8000/su-olcumu/10/aksiyon-onerisi",
+							"nodeName": "http:\/\/su-ai-backend:8000\/su-olcumu\/10\/aksiyon-onerisi",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "4559",
+							"uri": "http://su-ai-backend:8000/su-olcumu/10/aksiyon-onerisi/",
+							"nodeName": "http:\/\/su-ai-backend:8000\/su-olcumu\/10\/aksiyon-onerisi\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "56",
+							"uri": "http://su-ai-backend:8000/su-olcumu/3908519299485574857",
+							"nodeName": "http:\/\/su-ai-backend:8000\/su-olcumu\/3908519299485574857",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "7",
+							"uri": "http://su-ai-backend:8000/admin/users/10/notification-preferences",
+							"nodeName": "http:\/\/su-ai-backend:8000\/admin\/users\/10\/notification-preferences ()({notify_push,notify_email})",
+							"method": "PATCH",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "4494",
+							"uri": "http://su-ai-backend:8000/admin/users/10/notification-preferences/",
+							"nodeName": "http:\/\/su-ai-backend:8000\/admin\/users\/10\/notification-preferences\/ ()({notify_push,notify_email})",
+							"method": "PATCH",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "38",
+							"uri": "http://su-ai-backend:8000/admin/organizations",
+							"nodeName": "http:\/\/su-ai-backend:8000\/admin\/organizations ()({name})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "4495",
+							"uri": "http://su-ai-backend:8000/admin/organizations/",
+							"nodeName": "http:\/\/su-ai-backend:8000\/admin\/organizations\/ ()({name})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "39",
+							"uri": "http://su-ai-backend:8000/admin/organizations/org_id/users",
+							"nodeName": "http:\/\/su-ai-backend:8000\/admin\/organizations\/org_id\/users ()({email,rol,aktif_mi,sifre})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "4492",
+							"uri": "http://su-ai-backend:8000/admin/organizations/org_id/users/",
+							"nodeName": "http:\/\/su-ai-backend:8000\/admin\/organizations\/org_id\/users\/ ()({email,rol,aktif_mi,sifre})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "6",
+							"uri": "http://su-ai-backend:8000/admin/users/10/push-token",
+							"nodeName": "http:\/\/su-ai-backend:8000\/admin\/users\/10\/push-token ()({push_token})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "4493",
+							"uri": "http://su-ai-backend:8000/admin/users/10/push-token/",
+							"nodeName": "http:\/\/su-ai-backend:8000\/admin\/users\/10\/push-token\/ ()({push_token})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "4500",
+							"uri": "http://su-ai-backend:8000/api/sim/tetikle",
+							"nodeName": "http:\/\/su-ai-backend:8000\/api\/sim\/tetikle",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "33",
+							"uri": "http://su-ai-backend:8000/api/sim/tetikle?istasyon_id=1&mod=karisik&use_mqtt=false",
+							"nodeName": "http:\/\/su-ai-backend:8000\/api\/sim\/tetikle (istasyon_id,mod,use_mqtt)",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "4504",
+							"uri": "http://su-ai-backend:8000/api/sim/tetikle/",
+							"nodeName": "http:\/\/su-ai-backend:8000\/api\/sim\/tetikle\/",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "9",
+							"uri": "http://su-ai-backend:8000/istasyonlar/",
+							"nodeName": "http:\/\/su-ai-backend:8000\/istasyonlar\/ ()({ad,konum,tip,aktif_mi,enlem,boylam})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "22",
+							"uri": "http://su-ai-backend:8000/olcumler/",
+							"nodeName": "http:\/\/su-ai-backend:8000\/olcumler\/ ()({istasyon_id,ph,serbest_klor,bulaniklik,iletkenlik,sicaklik,personel_notu})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "4",
+							"uri": "http://su-ai-backend:8000/refresh",
+							"nodeName": "http:\/\/su-ai-backend:8000\/refresh ()({refresh_token})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "172",
+							"uri": "http://su-ai-backend:8000/refresh",
+							"nodeName": "http:\/\/su-ai-backend:8000\/refresh ()({refresh_token})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "429",
+							"otherinfo": ""
+						},
+						{
+							"id": "4501",
+							"uri": "http://su-ai-backend:8000/refresh/",
+							"nodeName": "http:\/\/su-ai-backend:8000\/refresh\/ ()({refresh_token})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "429",
+							"otherinfo": ""
+						},
+						{
+							"id": "23",
+							"uri": "http://su-ai-backend:8000/su-olcumu",
+							"nodeName": "http:\/\/su-ai-backend:8000\/su-olcumu ()({istasyon_id,ph,serbest_klor,bulaniklik,iletkenlik,sicaklik,personel_notu})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "4510",
+							"uri": "http://su-ai-backend:8000/su-olcumu/",
+							"nodeName": "http:\/\/su-ai-backend:8000\/su-olcumu\/ ()({istasyon_id,ph,serbest_klor,bulaniklik,iletkenlik,sicaklik,personel_notu})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "3",
+							"uri": "http://su-ai-backend:8000/token",
+							"nodeName": "http:\/\/su-ai-backend:8000\/token ()(client_id,client_secret,grant_type,password,scope,username)",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "422",
+							"otherinfo": ""
+						},
+						{
+							"id": "4503",
+							"uri": "http://su-ai-backend:8000/token/",
+							"nodeName": "http:\/\/su-ai-backend:8000\/token\/ ()(client_id,client_secret,grant_type,password,scope,username)",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "422",
+							"otherinfo": ""
+						}
+					],
+					"count": "101",
+					"systemic": false,
+					"solution": "",
+					"otherinfo": "",
+					"reference": "",
+					"cweid": "388",
+					"wascid": "20",
+					"sourceid": "46"
+				},
+				{
+					"pluginid": "10111",
+					"alertRef": "10111",
+					"alert": "Authentication Request Identified",
+					"name": "Authentication Request Identified",
+					"riskcode": "0",
+					"confidence": "1",
+					"riskdesc": "Informational (Low)",
+					"desc": "<p>The given request has been identified as an authentication request. The 'Other Info' field contains a set of key=value lines which identify any relevant fields. If the request is in a context which has an Authentication Method set to \"Auto-Detect\" then this rule will change the authentication to match the request identified.</p>",
+					"instances":[ 
+						{
+							"id": "21",
+							"uri": "http://su-ai-backend:8000/token",
+							"nodeName": "http:\/\/su-ai-backend:8000\/token ()(client_id,client_secret,grant_type,password,scope,username)",
+							"method": "POST",
+							"param": "username",
+							"attack": "",
+							"evidence": "password",
+							"otherinfo": "userParam=username\nuserValue=username\npasswordParam=password"
+						}
+					],
+					"count": "1",
+					"systemic": false,
+					"solution": "<p>This is an informational alert rather than a vulnerability and so there is nothing to fix.</p>",
+					"otherinfo": "<p>userParam=username</p><p>userValue=username</p><p>passwordParam=password</p>",
+					"reference": "<p>https://www.zaproxy.org/docs/desktop/addons/authentication-helper/auth-req-id/</p>",
+					"cweid": "-1",
+					"wascid": "-1",
+					"sourceid": "9"
+				},
+				{
+					"pluginid": "10049",
+					"alertRef": "10049-1",
+					"alert": "Non-Storable Content",
+					"name": "Non-Storable Content",
+					"riskcode": "0",
+					"confidence": "2",
+					"riskdesc": "Informational (Medium)",
+					"desc": "<p>The response contents are not storable by caching components such as proxy servers. If the response does not contain sensitive, personal or user-specific information, it may benefit from being stored and cached, to improve performance.</p>",
+					"instances":[ 
+						{
+							"id": "14",
+							"uri": "http://su-ai-backend:8000/",
+							"nodeName": "http:\/\/su-ai-backend:8000\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "authorization:",
+							"otherinfo": ""
+						},
+						{
+							"id": "18",
+							"uri": "http://su-ai-backend:8000/admin/reports/monthly?month=month",
+							"nodeName": "http:\/\/su-ai-backend:8000\/admin\/reports\/monthly (month)",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "authorization:",
+							"otherinfo": ""
+						},
+						{
+							"id": "16",
+							"uri": "http://su-ai-backend:8000/health",
+							"nodeName": "http:\/\/su-ai-backend:8000\/health",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "authorization:",
+							"otherinfo": ""
+						},
+						{
+							"id": "13",
+							"uri": "http://su-ai-backend:8000/metrics",
+							"nodeName": "http:\/\/su-ai-backend:8000\/metrics",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "authorization:",
+							"otherinfo": ""
+						},
+						{
+							"id": "1",
+							"uri": "http://su-ai-backend:8000/openapi.json",
+							"nodeName": "http:\/\/su-ai-backend:8000\/openapi.json",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "authorization:",
+							"otherinfo": ""
+						}
+					],
+					"count": "5",
+					"systemic": true,
+					"solution": "<p>The content may be marked as storable by ensuring that the following conditions are satisfied:</p><p>The request method must be understood by the cache and defined as being cacheable (\"GET\", \"HEAD\", and \"POST\" are currently defined as cacheable)</p><p>The response status code must be understood by the cache (one of the 1XX, 2XX, 3XX, 4XX, or 5XX response classes are generally understood)</p><p>The \"no-store\" cache directive must not appear in the request or response header fields</p><p>For caching by \"shared\" caches such as \"proxy\" caches, the \"private\" response directive must not appear in the response</p><p>For caching by \"shared\" caches such as \"proxy\" caches, the \"Authorization\" header field must not appear in the request, unless the response explicitly allows it (using one of the \"must-revalidate\", \"public\", or \"s-maxage\" Cache-Control response directives)</p><p>In addition to the conditions above, at least one of the following conditions must also be satisfied by the response:</p><p>It must contain an \"Expires\" header field</p><p>It must contain a \"max-age\" response directive</p><p>For \"shared\" caches such as \"proxy\" caches, it must contain a \"s-maxage\" response directive</p><p>It must contain a \"Cache Control Extension\" that allows it to be cached</p><p>It must have a status code that is defined as cacheable by default (200, 203, 204, 206, 300, 301, 404, 405, 410, 414, 501).</p>",
+					"otherinfo": "",
+					"reference": "<p>https://datatracker.ietf.org/doc/html/rfc7234</p><p>https://datatracker.ietf.org/doc/html/rfc7231</p><p>https://www.w3.org/Protocols/rfc2616/rfc2616-sec13.html</p>",
+					"cweid": "524",
+					"wascid": "13",
+					"sourceid": "7"
+				}
+			]
+		}
+	],
+	"sequences":[
+	]
+
+}
