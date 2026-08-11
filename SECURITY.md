@@ -12,7 +12,7 @@ A comprehensive two-phase security audit was conducted against the Su-AI backend
    *Note: Endpoints triggering external notifications (emails/pushes) were explicitly excluded from the active scan to prevent spam.*
 
 ## 2. Findings Summary
-The results of both scans were extremely clean, verifying the robust security features provided out-of-the-box by FastAPI, Pydantic (strict typing), and SQLAlchemy (parameterized queries).
+> **⚠️ CRITICAL COVERAGE CAVEAT:** Upon reviewing the raw ZAP report, the URL coverage was strictly limited to 4 base URLs (`/`, `/robots.txt`, `/sitemap.xml`). Because `zap-full-scan.py` performs traditional HTML spidering and was not provided the OpenAPI spec (`/openapi.json`), it failed to discover and test the actual API endpoints (`/admin/`, `/istasyonlar/`, etc.). The "0 vulnerabilities" finding only applies to the root web service configuration, **not** the API routes. 
 
 - **Total Passive Tests Passed:** 65
 - **Total Active Tests Passed:** 141
@@ -28,6 +28,15 @@ The results of both scans were extremely clean, verifying the robust security fe
 - **`WARN-NEW: Storable and Cacheable Content [10049]`**:
   - **Status:** Accepted Risk (Informational).
   - **Resolution:** ZAP warned that HTTP `GET` responses didn't explicitly forbid caching. Because this is a REST API providing time-series data and station configurations, standard client-side/proxy caching is acceptable and sometimes desirable.
+
+## 3. Exclusions & Future Action Items
+To prevent triggering real external emails and push notifications during active attack fuzzing, the following endpoints were explicitly **excluded** from the scan scope:
+- `.*/olcumler/.*`
+- `.*/su-olcumu.*`
+- `.*/api/sim/tetikle.*`
+
+**Recommended Next Step:**
+A proper API-focused active scan (`zap-api-scan.py` importing `http://su-ai-backend:8000/openapi.json`) must be performed to test the API endpoints that were missed by the traditional spider. Additionally, the excluded notification endpoints should be audited in a safe, fully-isolated staging database environment where SMTP/Firebase services are stubbed out.
 
 ## 3. Data Integrity Validation
 After the active attack sequence, the database tables (`istasyonlar`, `kullanicilar`, `organizations`) were queried. 
