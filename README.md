@@ -46,3 +46,9 @@ We provide a production-grade Docker Compose setup that orchestrates all necessa
 - ChromaDB runs on port `8000` on the host.
 - Ollama runs on port `11434` on the host.
 - PostgreSQL runs on port `5432` on the host.
+
+### Multi-Tenancy / SaaS Architecture
+Su-AI uses a robust multi-tenancy model to isolate data securely between different organizations (tenants).
+- **Data Isolation:** All data querying (Stations, Measurements, Users, etc.) explicitly enforces the `organization_id` at the database level.
+- **Backwards Compatibility:** Legacy configurations and users are safely ported to a "Default Organization" automatically via Alembic migrations.
+- **Tenant Management:** Organization administrators and system users can manage tenants and assign users safely via the `/admin/organizations` endpoints.

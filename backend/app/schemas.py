@@ -1,5 +1,6 @@
 from datetime import datetime
 from typing import Optional
+import uuid
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -99,6 +100,18 @@ class AksiyonOneriResponse(BaseModel):
 # ---------------------------------------------------------------------------
 # Kimlik Doğrulama (Auth) Şemaları
 # ---------------------------------------------------------------------------
+
+class OrganizationBase(BaseModel):
+    name: str
+
+class OrganizationCreate(OrganizationBase):
+    pass
+
+class OrganizationResponse(OrganizationBase):
+    id: uuid.UUID
+    created_at: datetime
+    
+    model_config = ConfigDict(from_attributes=True)
 
 
 class Token(BaseModel):

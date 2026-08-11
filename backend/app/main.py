@@ -183,11 +183,15 @@ async def get_monthly_report(
         
     from sqlalchemy import func
     
-    stations_result = await db.execute(select(models.Istasyon))
+    stations_result = await db.execute(select(models.Istasyon).filter(models.Istasyon.organization_id == current_user.organization_id))
     stations = stations_result.scalars().all()
+    station_ids = [st.id for st in stations]
+    if not station_ids:
+        return Response(content=b"", media_type="application/pdf")
     
     stmt_total = (
         select(models.SuOlcumu.istasyon_id, func.count(models.SuOlcumu.id))
+        .filter(models.SuOlcumu.istasyon_id.in_(station_ids))
         .filter(models.SuOlcumu.olcum_tarihi >= start_date)
         .filter(models.SuOlcumu.olcum_tarihi <= end_date)
         .group_by(models.SuOlcumu.istasyon_id)
@@ -197,6 +201,7 @@ async def get_monthly_report(
     
     stmt_anom = (
         select(models.SuOlcumu.istasyon_id, func.count(models.SuOlcumu.id))
+        .filter(models.SuOlcumu.istasyon_id.in_(station_ids))
         .filter(models.SuOlcumu.olcum_tarihi >= start_date)
         .filter(models.SuOlcumu.olcum_tarihi <= end_date)
         .filter(models.SuOlcumu.risk_seviyesi.in_(["DÜŞÜK", "ORTA", "KRİTİK"]))
@@ -221,6 +226,7 @@ async def get_monthly_report(
     stmt_judge = (
         select(func.avg(models.AnalizMetrikleri.uygunluk_puani))
         .join(models.SuOlcumu, models.AnalizMetrikleri.olcum_id == models.SuOlcumu.id)
+        .filter(models.SuOlcumu.istasyon_id.in_(station_ids))
         .filter(models.SuOlcumu.olcum_tarihi >= start_date)
         .filter(models.SuOlcumu.olcum_tarihi <= end_date)
     )
@@ -501,7 +507,10 @@ async def update_push_token(
     db: AsyncSession = Depends(get_db),
     current_user: models.Kullanici = Depends(require_role(["yonetici"])),
 ):
-    result = await db.execute(select(models.Kullanici).filter(models.Kullanici.id == user_id))
+    result = await db.execute(
+        select(models.Kullanici)
+        .filter(models.Kullanici.id == user_id, models.Kullanici.organization_id == current_user.organization_id)
+    )
     user = result.scalars().first()
     if not user:
         raise HTTPException(status_code=404, detail="Kullanıcı bulunamadı")
@@ -517,7 +526,10 @@ async def update_notification_preferences(
     db: AsyncSession = Depends(get_db),
     current_user: models.Kullanici = Depends(require_role(["yonetici"])),
 ):
-    result = await db.execute(select(models.Kullanici).filter(models.Kullanici.id == user_id))
+    result = await db.execute(
+        select(models.Kullanici)
+        .filter(models.Kullanici.id == user_id, models.Kullanici.organization_id == current_user.organization_id)
+    )
     user = result.scalars().first()
     if not user:
         raise HTTPException(status_code=404, detail="Kullanıcı bulunamadı")
@@ -542,7 +554,7 @@ async def create_istasyon(
     db: AsyncSession = Depends(get_db),
     current_user: models.Kullanici = Depends(require_role(["yonetici"])),
 ):
-    db_istasyon = models.Istasyon(**istasyon.model_dump())
+    db_istasyon = models.Istasyon(**istasyon.model_dump(), organization_id=current_user.organization_id)
     db.add(db_istasyon)
     await db.commit()
     await db.refresh(db_istasyon)
@@ -562,7 +574,12 @@ async def read_istasyonlar(
     db: AsyncSession = Depends(get_db),
     current_user: models.Kullanici = Depends(require_role(["saha_personeli", "yonetici"])),
 ):
-    result = await db.execute(select(models.Istasyon).offset(skip).limit(limit))
+    result = await db.execute(
+        select(models.Istasyon)
+        .filter(models.Istasyon.organization_id == current_user.organization_id)
+        .offset(skip)
+        .limit(limit)
+    )
     return result.scalars().all()
 
 
@@ -572,7 +589,10 @@ async def read_istasyon(
     db: AsyncSession = Depends(get_db),
     current_user: models.Kullanici = Depends(require_role(["saha_personeli", "yonetici"])),
 ):
-    result = await db.execute(select(models.Istasyon).filter(models.Istasyon.id == istasyon_id))
+    result = await db.execute(
+        select(models.Istasyon)
+        .filter(models.Istasyon.id == istasyon_id, models.Istasyon.organization_id == current_user.organization_id)
+    )
     istasyon = result.scalars().first()
     if not istasyon:
         raise HTTPException(status_code=404, detail="İstasyon bulunamadı")
@@ -594,7 +614,10 @@ async def get_gis_istasyonlar(
     db: AsyncSession = Depends(get_db),
     current_user: models.Kullanici = Depends(require_role(["saha_personeli", "yonetici"])),
 ):
-    result = await db.execute(select(models.Istasyon).filter(models.Istasyon.aktif_mi.is_(True)))
+    result = await db.execute(
+        select(models.Istasyon)
+        .filter(models.Istasyon.aktif_mi.is_(True), models.Istasyon.organization_id == current_user.organization_id)
+    )
     istasyonlar = result.scalars().all()
 
     gis_data = []
@@ -691,7 +714,9 @@ async def get_trend_analysis(
 
     q = (
         select(models.SuOlcumu)
+        .join(models.Istasyon, models.Istasyon.id == models.SuOlcumu.istasyon_id)
         .filter(models.SuOlcumu.istasyon_id == istasyon_id)
+        .filter(models.Istasyon.organization_id == current_user.organization_id)
         .order_by(models.SuOlcumu.olcum_tarihi.desc())
         .limit(10)
     )
@@ -722,7 +747,13 @@ async def list_olcumler(
     Son ölçümleri listeler. Opsiyonel istasyon_id filtresi ve limit parametresi desteklenir.
     SimulatorScreen ve dashboard için kullanılır.
     """
-    q = select(models.SuOlcumu).order_by(models.SuOlcumu.olcum_tarihi.desc()).limit(limit)
+    q = (
+        select(models.SuOlcumu)
+        .join(models.Istasyon, models.Istasyon.id == models.SuOlcumu.istasyon_id)
+        .filter(models.Istasyon.organization_id == current_user.organization_id)
+        .order_by(models.SuOlcumu.olcum_tarihi.desc())
+        .limit(limit)
+    )
     if istasyon_id is not None:
         q = q.filter(models.SuOlcumu.istasyon_id == istasyon_id)
     result = await db.execute(q)
@@ -747,7 +778,10 @@ async def create_olcum(
     Sadece yetkili kullanıcılar erişebilir.
     """
     # 1. İstasyon kontrolü
-    result = await db.execute(select(models.Istasyon).filter(models.Istasyon.id == olcum.istasyon_id))
+    result = await db.execute(
+        select(models.Istasyon)
+        .filter(models.Istasyon.id == olcum.istasyon_id, models.Istasyon.organization_id == current_user.organization_id)
+    )
     istasyon = result.scalars().first()
     if not istasyon:
         raise HTTPException(status_code=404, detail=f"İstasyon (id={olcum.istasyon_id}) bulunamadı")
@@ -799,7 +833,11 @@ async def read_olcum(
     """
     Belirli bir ölçümün güncel durumunu döner.
     """
-    result = await db.execute(select(models.SuOlcumu).filter(models.SuOlcumu.id == olcum_id))
+    result = await db.execute(
+        select(models.SuOlcumu)
+        .join(models.Istasyon, models.Istasyon.id == models.SuOlcumu.istasyon_id)
+        .filter(models.SuOlcumu.id == olcum_id, models.Istasyon.organization_id == current_user.organization_id)
+    )
     olcum = result.scalars().first()
     if not olcum:
         raise HTTPException(status_code=404, detail="Ölçüm bulunamadı")
@@ -888,7 +926,10 @@ async def sim_tetikle(
     mod: 'normal' | 'anomali' | 'karisik'
     """
     # İstasyon var mı?
-    result = await db.execute(select(models.Istasyon).filter(models.Istasyon.id == istasyon_id))
+    result = await db.execute(
+        select(models.Istasyon)
+        .filter(models.Istasyon.id == istasyon_id, models.Istasyon.organization_id == current_user.organization_id)
+    )
     istasyon = result.scalars().first()
     if not istasyon:
         raise HTTPException(status_code=404, detail=f"İstasyon (id={istasyon_id}) bulunamadı")
@@ -987,7 +1028,11 @@ async def get_su_olcumu_aksiyon_onerisi(
     """
     from app.llm_service import olustur_teknik_aksiyon_onerisi
 
-    result = await db.execute(select(models.SuOlcumu).filter(models.SuOlcumu.id == id))
+    result = await db.execute(
+        select(models.SuOlcumu)
+        .join(models.Istasyon, models.Istasyon.id == models.SuOlcumu.istasyon_id)
+        .filter(models.SuOlcumu.id == id, models.Istasyon.organization_id == current_user.organization_id)
+    )
     olcum = result.scalars().first()
     if not olcum:
         raise HTTPException(status_code=404, detail="Ölçüm bulunamadı")
@@ -1007,3 +1052,70 @@ async def get_su_olcumu_aksiyon_onerisi(
     )
 
     return {"olcum_id": id, "aksiyon_onerisi": teknik_oneri, "llm_durumu": llm_durumu}
+
+# ---------------------------------------------------------------------------
+# Organization Management Endpoint'leri
+# ---------------------------------------------------------------------------
+
+@app.post("/admin/organizations", response_model=schemas.OrganizationResponse, tags=["Yönetici - Organizasyon"])
+async def create_organization(
+    org_data: schemas.OrganizationCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: models.Kullanici = Depends(require_role(["yonetici"])),
+):
+    """
+    Sadece yöneticiler yeni organizasyon (tenant) oluşturabilir.
+    """
+    db_org = models.Organization(**org_data.model_dump())
+    db.add(db_org)
+    try:
+        await db.commit()
+        await db.refresh(db_org)
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=400, detail="Organizasyon oluşturulamadı. Aynı isimde organizasyon olabilir.")
+        
+    await log_audit(db, kullanici_id=current_user.id, islem_tipi="ORG_OLUSTURULDU", detay=f"Yeni organizasyon eklendi: {org_data.name}")
+    return db_org
+
+@app.post("/admin/organizations/{org_id}/users", response_model=schemas.KullaniciResponse, tags=["Yönetici - Organizasyon"])
+async def add_user_to_organization(
+    org_id: str,
+    user_data: schemas.KullaniciCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: models.Kullanici = Depends(require_role(["yonetici"])),
+):
+    """
+    Organizasyona yeni bir kullanıcı ekler.
+    """
+    from app.auth import get_password_hash
+    import uuid
+
+    # Organizasyon var mı kontrol et
+    try:
+        parsed_uuid = uuid.UUID(org_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Geçersiz organizasyon ID")
+
+    result = await db.execute(select(models.Organization).filter(models.Organization.id == parsed_uuid))
+    org = result.scalars().first()
+    if not org:
+        raise HTTPException(status_code=404, detail="Organizasyon bulunamadı")
+
+    db_user = models.Kullanici(
+        email=user_data.email,
+        sifre_hash=get_password_hash(user_data.sifre),
+        rol=user_data.rol,
+        aktif_mi=user_data.aktif_mi,
+        organization_id=parsed_uuid
+    )
+    db.add(db_user)
+    try:
+        await db.commit()
+        await db.refresh(db_user)
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=400, detail="Kullanıcı oluşturulamadı. E-posta adresi kullanımda olabilir.")
+
+    await log_audit(db, kullanici_id=current_user.id, islem_tipi="USER_EKLENDI", detay=f"Organizasyona ({org_id}) yeni kullanıcı eklendi: {user_data.email}")
+    return db_user

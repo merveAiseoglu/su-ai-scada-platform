@@ -1,13 +1,22 @@
-from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, String, Text
+import uuid
+from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, String, Text, Uuid
 from sqlalchemy.sql import func
 
 from app.database import Base
+
+class Organization(Base):
+    __tablename__ = "organizations"
+
+    id = Column(Uuid, primary_key=True, default=uuid.uuid4, index=True)
+    name = Column(String, nullable=False, unique=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
 class Istasyon(Base):
     __tablename__ = "istasyonlar"
 
     id = Column(Integer, primary_key=True, index=True)
+    organization_id = Column(Uuid, ForeignKey("organizations.id"), nullable=False)
     ad = Column(String, index=True, nullable=False)
     konum = Column(String, nullable=True)
     tip = Column(String, nullable=False)  # örn: "Kuyu", "Depo", "Şebeke"
@@ -97,6 +106,7 @@ class AnalizMetrikleri(Base):
 class Kullanici(Base):
     __tablename__ = "kullanicilar"
     id = Column(Integer, primary_key=True, index=True)
+    organization_id = Column(Uuid, ForeignKey("organizations.id"), nullable=False)
     email = Column(String, unique=True, index=True, nullable=False)
     sifre_hash = Column(String, nullable=False)
     rol = Column(String, nullable=False, default="saha_personeli")  # 'saha_personeli' or 'yonetici'

@@ -100,9 +100,13 @@ async def dispatch_critical_alerts(olcum_id: int, db_factory):
             istasyon = ist_result.scalars().first()
             istasyon_adi = istasyon.ad if istasyon else f"ID:{olcum.istasyon_id}"
 
-            # Get Admins
+            # Get Admins of the same organization
             admins_result = await db.execute(
-                select(Kullanici).filter(Kullanici.rol == "yonetici", Kullanici.aktif_mi.is_(True))
+                select(Kullanici).filter(
+                    Kullanici.rol == "yonetici",
+                    Kullanici.aktif_mi.is_(True),
+                    Kullanici.organization_id == istasyon.organization_id
+                )
             )
             admins = admins_result.scalars().all()
 
@@ -126,14 +130,14 @@ async def dispatch_critical_alerts(olcum_id: int, db_factory):
             title = f"🚨 KRİTİK ANOMALİ: {istasyon_adi}"
             body = f"İstasyon: {istasyon_adi}\npH: {olcum.ph}, Klor: {olcum.serbest_klor}, Bulanıklık: {olcum.bulaniklik}\nLütfen derhal sistemi kontrol edin."
 
-            # Send asynchronously
-            tasks = []
-            if push_tokens:
-                tasks.append(send_push_notification(push_tokens, title, body))
-            if email_recipients:
-                tasks.append(send_email_alert(email_recipients, title, body))
+        # Send asynchronously OUTSIDE the DB block to avoid holding connection during network I/O
+        tasks = []
+        if push_tokens:
+            tasks.append(send_push_notification(push_tokens, title, body))
+        if email_recipients:
+            tasks.append(send_email_alert(email_recipients, title, body))
 
-            if tasks:
-                await asyncio.gather(*tasks, return_exceptions=True)
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
     except Exception as e:
         logger.error(f"[NOTIFICATION] Error in alert dispatcher: {e}")
