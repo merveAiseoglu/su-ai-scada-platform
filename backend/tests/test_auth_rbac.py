@@ -39,10 +39,10 @@ async def test_rbac_personel_cannot_trigger_sim(personel_client: AsyncClient):
     assert response.status_code == 403
 
 @pytest.mark.asyncio
-async def test_rbac_admin_can_trigger_sim(admin_client: AsyncClient, test_db):
+async def test_rbac_admin_can_trigger_sim(admin_client: AsyncClient, test_db, seed_users):
     # First create an istasyon
     from app.models import Istasyon
-    istasyon = Istasyon(id=1, ad="Test İstasyon", konum="Test", tip="Depo", enlem=1.0, boylam=1.0, aktif_mi=True)
+    istasyon = Istasyon(id=1, ad="Test İstasyon", konum="Test", tip="Depo", enlem=1.0, boylam=1.0, aktif_mi=True, organization_id=seed_users["org"].id)
     test_db.add(istasyon)
     await test_db.commit()
 

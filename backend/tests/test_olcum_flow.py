@@ -3,13 +3,18 @@ from httpx import AsyncClient
 from app.models import Istasyon
 
 @pytest.fixture
-async def setup_istasyon(test_db):
-    ist = Istasyon(id=1, ad="Test İstasyon", konum="Merkez", tip="Depo", enlem=37.0, boylam=38.0, aktif_mi=True)
+async def setup_istasyon(test_db, seed_users):
+    ist = Istasyon(id=1, ad="Test İstasyon", konum="Merkez", tip="Depo", enlem=37.0, boylam=38.0, aktif_mi=True, organization_id=seed_users["org"].id)
     test_db.add(ist)
     await test_db.commit()
 
 @pytest.mark.asyncio
-async def test_create_olcum_flow(personel_client: AsyncClient, setup_istasyon, mocker):
+async def test_create_olcum_flow(personel_client: AsyncClient, test_db, seed_users, mocker):
+    # Setup Istasyon
+    istasyon = Istasyon(id=1, ad="Merkez Depo", tip="Depo", aktif_mi=True, organization_id=seed_users["org"].id)
+    test_db.add(istasyon)
+    await test_db.commit()
+    
     # Mock the background task to avoid real LLM calls
     mock_bg_task = mocker.patch("app.main.arka_planda_analiz_et")
     

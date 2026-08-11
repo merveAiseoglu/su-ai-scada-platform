@@ -45,3 +45,6 @@ weasyprint
 reportlab
 
 chromadb
+pytest
+pytest-asyncio
+pytest-mock

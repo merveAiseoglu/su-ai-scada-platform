@@ -41,6 +41,15 @@ We provide a production-grade Docker Compose setup that orchestrates all necessa
    - `make db-shell`: Open an interactive psql shell in the database container.
    - `make backend-shell`: Open a bash shell in the backend container.
 
+### Testleri Çalıştırma
+
+Projede `pytest` ve `pytest-asyncio` tabanlı kapsamlı bir test altyapısı bulunmaktadır. Testler, izole edilmiş bir `su_ai_test` Postgres veritabanı üzerinde her testte işlem geri alımı (transaction rollback) yöntemiyle hızlıca çalışır.
+
+Testleri Docker container içerisinde çalıştırmak için:
+```bash
+docker exec -t su-ai-backend pytest -v tests/
+```
+
 ### Architecture Notes
 - The backend API runs on port `8080` on the host (mapped to `8000` inside the container).
 - ChromaDB runs on port `8000` on the host.
