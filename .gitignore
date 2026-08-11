@@ -9,3 +9,9 @@ docker-compose.override.yml
 docker-compose.override.yaml
 *volume*/
 *data*/
+
+chroma_db/
+*.log
+*.pdf
+backup*.sql
+metrics*.txt
