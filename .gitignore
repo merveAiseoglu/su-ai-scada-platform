@@ -17,3 +17,6 @@ backup*.sql
 metrics*.txt
 
 *_logs.txt
+
+backend/benchmark/*results*.json
+backend/benchmark/reports/
