@@ -24,10 +24,14 @@ The results of the authenticated API scan were extremely clean. The scan success
   - **Status:** Fixed.
   - **Resolution:** We injected `Cross-Origin-Resource-Policy: same-site` into the custom HTTP middleware in `app/main.py`.
 
-### 2.2 Accepted / Documented Risks
 - **`WARN-NEW: A Server Error response code was returned by the server [100000]`**:
+  - **Status:** Fixed.
+  - **Resolution:** ZAP triggered a 500 Internal Server Error against the `/logout` endpoint during fuzzing. This was an unhandled exception (`sqlalchemy.exc.IntegrityError` when logging out the same token twice, and `jwt.PyJWTError` producing silent failures instead of 401s). The endpoint was refactored to catch these exceptions, roll back duplicate blocklist inserts gracefully, and return a clean 401 Unauthorized for malformed tokens.
+
+### 2.2 Accepted / Documented Risks
+- **`WARN-NEW: Storable and Cacheable Content [10049]`**:
   - **Status:** Accepted Risk (Informational).
-  - **Resolution:** ZAP triggered a 500 Internal Server Error against the `/logout` endpoint during fuzzing (likely by invalidating the token payload mid-flight). Handled appropriately at the framework level.
+  - **Resolution:** ZAP warned that HTTP `GET` responses didn't explicitly forbid caching. Because this is a REST API providing time-series data and station configurations, standard client-side/proxy caching is acceptable and sometimes desirable.
 
 ## 3. Exclusions & Future Action Items
 To prevent triggering real external emails and push notifications during active attack fuzzing, the following endpoints were explicitly **excluded** from the scan scope:

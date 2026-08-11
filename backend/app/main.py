@@ -384,6 +384,7 @@ async def login_for_access_token(
 
 @app.post("/logout", tags=["Kimlik Doğrulama"])
 async def logout(token: str = Depends(oauth2_scheme), db: AsyncSession = Depends(get_db)):
+    from sqlalchemy.exc import IntegrityError
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         jti = payload.get("jti")
@@ -391,8 +392,11 @@ async def logout(token: str = Depends(oauth2_scheme), db: AsyncSession = Depends
             blacklisted_token = models.TokenBlocklist(jti=jti)
             db.add(blacklisted_token)
             await db.commit()
+    except IntegrityError:
+        # Token is already blacklisted
+        await db.rollback()
     except jwt.PyJWTError:
-        pass
+        raise HTTPException(status_code=401, detail="Geçersiz token")
     return {"mesaj": "Başarıyla çıkış yapıldı"}
 
 
