@@ -5,6 +5,7 @@ import { useState, useEffect, useCallback } from "react";
 import NetInfo from "@react-native-community/netinfo";
 import { getBekleyenOlcumler, guncelleDurum } from "../services/offlineStorage";
 import { topluOlcumGonder } from "../services/api";
+import { senkronizasyonTamamlandiBildirimi } from "../services/notificationService";
 
 /**
  * Ağ bağlantısını izler ve bekleyen offline ölçümleri otomatik senkronize eder.
@@ -45,6 +46,9 @@ export function useNetworkStatus() {
         await guncelleDurum(s.yerelId, "hata");
       }
 
+      if (sonuclar.basarili.length > 0) {
+        await senkronizasyonTamamlandiBildirimi(sonuclar.basarili.length, sonuclar.basarisiz.length);
+      }
       setSyncDurumu("tamamlandi");
 
       // 3 saniye sonra durumu sıfırla

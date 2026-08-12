@@ -36,27 +36,40 @@ async function getDB() {
 // CRUD İşlemleri
 // ---------------------------------------------------------------------------
 
+async function withDB(fn) {
+  try {
+    const db = await getDB();
+    return await fn(db);
+  } catch (err) {
+    console.warn("[offlineStorage] DB hatası, bağlantı sıfırlanıyor:", err.message);
+    _db = null; // cache'i geçersiz kıl
+    const db = await getDB(); // yeniden aç
+    return await fn(db); // bir kez daha dene
+  }
+}
+
 /**
  * Yeni bir offline ölçüm kaydeder.
  * @returns {number} Oluşturulan kaydın yerel ID'si
  */
 export async function kaydetOlcum(olcumData) {
-  const db = await getDB();
-  const result = await db.runAsync(
-    `INSERT INTO bekleyen_olcumler
-       (istasyon_id, ph, serbest_klor, bulaniklik, iletkenlik, sicaklik, personel_notu)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    [
-      olcumData.istasyon_id,
-      olcumData.ph ?? null,
-      olcumData.serbest_klor ?? null,
-      olcumData.bulaniklik ?? null,
-      olcumData.iletkenlik ?? null,
-      olcumData.sicaklik ?? null,
-      olcumData.personel_notu ?? null,
-    ]
-  );
-  return result.lastInsertRowId;
+  return await withDB(async (db) => {
+    const result = await db.runAsync(
+      `INSERT INTO bekleyen_olcumler
+         (istasyon_id, ph, serbest_klor, bulaniklik, iletkenlik, sicaklik, personel_notu)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [
+        olcumData.istasyon_id,
+        olcumData.ph ?? null,
+        olcumData.serbest_klor ?? null,
+        olcumData.bulaniklik ?? null,
+        olcumData.iletkenlik ?? null,
+        olcumData.sicaklik ?? null,
+        olcumData.personel_notu ?? null,
+      ]
+    );
+    return result.lastInsertRowId;
+  });
 }
 
 /**
@@ -64,10 +77,11 @@ export async function kaydetOlcum(olcumData) {
  * @returns {Array} Bekleyen ölçümler listesi
  */
 export async function getBekleyenOlcumler() {
-  const db = await getDB();
-  return await db.getAllAsync(
-    `SELECT * FROM bekleyen_olcumler WHERE durum = 'bekliyor' ORDER BY olusturulma ASC`
-  );
+  return await withDB(async (db) => {
+    return await db.getAllAsync(
+      `SELECT * FROM bekleyen_olcumler WHERE durum = 'bekliyor' ORDER BY olusturulma ASC`
+    );
+  });
 }
 
 /**
@@ -76,32 +90,36 @@ export async function getBekleyenOlcumler() {
  * @param {'bekliyor'|'gonderiliyor'|'tamamlandi'|'hata'} durum
  */
 export async function guncelleDurum(id, durum) {
-  const db = await getDB();
-  await db.runAsync(
-    `UPDATE bekleyen_olcumler SET durum = ? WHERE id = ?`,
-    [durum, id]
-  );
+  return await withDB(async (db) => {
+    await db.runAsync(
+      `UPDATE bekleyen_olcumler SET durum = ? WHERE id = ?`,
+      [durum, id]
+    );
+  });
 }
 
 /**
  * Tamamlanan ölçümleri temizler (7 günden eski).
  */
 export async function temizleTamamlananlar() {
-  const db = await getDB();
-  await db.runAsync(
-    `DELETE FROM bekleyen_olcumler
-     WHERE durum = 'tamamlandi'
-       AND olusturulma < datetime('now', '-7 days', 'localtime')`
-  );
+  return await withDB(async (db) => {
+    await db.runAsync(
+      `DELETE FROM bekleyen_olcumler
+       WHERE durum = 'tamamlandi'
+         AND olusturulma < datetime('now', '-7 days', 'localtime')`
+    );
+  });
 }
 
 /**
  * Bekleyen ölçüm sayısını döner (UI badge için).
  */
 export async function getBekleyenSayisi() {
-  const db = await getDB();
-  const row = await db.getFirstAsync(
-    `SELECT COUNT(*) as sayi FROM bekleyen_olcumler WHERE durum = 'bekliyor'`
-  );
-  return row?.sayi ?? 0;
+  return await withDB(async (db) => {
+    const row = await db.getFirstAsync(
+      `SELECT COUNT(*) as sayi FROM bekleyen_olcumler WHERE durum = 'bekliyor'`
+    );
+    return row?.sayi ?? 0;
+  });
 }
+
