@@ -20,3 +20,7 @@ metrics*.txt
 
 backend/benchmark/*results*.json
 backend/benchmark/reports/
+
+zap_report/*.html
+zap_report/*.json
+!zap_report/zap.yaml
