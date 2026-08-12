@@ -290,23 +290,20 @@ async def arka_planda_analiz_et(olcum_id: int, db_factory) -> None:
                     olcum_id=olcum_id, anomali_raporu=kural_motoru_sonucu, db=db, trend_data=trend_data
                 )
 
-                # 4. Sonuçları DB'ye yaz — önce olcum alanları
+                # 4. LLM-as-a-Judge → Analiz durumunu TAMAMLANDI yapmadan önce bekle (race condition çözümü)
+                from app.judge_service import degerlendir_llm_ciktisi
+
+                await degerlendir_llm_ciktisi(
+                    olcum_id, kural_motoru_sonucu, teknik_oneri, db_factory, provider, olcum.istasyon_id
+                )
+
+                # 5. Sonuçları DB'ye yaz ve durumu TAMAMLANDI olarak işaretle
                 olcum.risk_seviyesi = kural_motoru_sonucu.get("en_yuksek_risk_seviyesi", "NORMAL")
                 olcum.aksiyon_onerisi = teknik_oneri
                 olcum.analiz_durumu = "TAMAMLANDI"
                 await db.commit()
 
                 logger.info(f"[BG] Tamamlandi: id={olcum_id} | " f"risk={olcum.risk_seviyesi} | llm={llm_durumu}")
-
-                # 5. LLM-as-a-Judge → Bu DB commit edildikten sonra çalışsın (DB çakışması olmasın diye db_factory geçilir)
-                from app.judge_service import degerlendir_llm_ciktisi
-                from app.tasks import fire_and_forget
-
-                fire_and_forget(
-                    degerlendir_llm_ciktisi(
-                        olcum_id, kural_motoru_sonucu, teknik_oneri, db_factory, provider, olcum.istasyon_id
-                    )
-                )
 
             except Exception as e:
                 logger.error(f"[BG] Beklenmeyen hata (id={olcum_id}): {e}", exc_info=True)
