@@ -17,9 +17,7 @@ import AuditLogScreen from "./src/screens/AuditLogScreen";
 import LoginScreen from "./src/screens/LoginScreen";
 import { kanallarOlustur } from "./src/services/notificationService";
 import { getToken } from "./src/services/api";
-
-// 1. AuthContext Oluştur
-export const AuthContext = React.createContext();
+import { AuthContext } from "./src/context/AuthContext";
 
 const Stack = createNativeStackNavigator();
 

@@ -9,7 +9,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { login } from "../services/api";
-import { AuthContext } from "../../App";
+import { AuthContext } from "../context/AuthContext";
 
 export default function LoginScreen() {
   const [email, setEmail] = useState("");

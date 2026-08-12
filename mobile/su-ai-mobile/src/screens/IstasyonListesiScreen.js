@@ -4,14 +4,14 @@
 import React, { useState, useEffect, useCallback } from "react";
 import {
   View, Text, FlatList, TouchableOpacity, StyleSheet,
-  StatusBar, ActivityIndicator, RefreshControl, Alert,
+  StatusBar, ActivityIndicator, RefreshControl, Alert, ScrollView
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { getIstasyonlar, getUserInfo, logout, getSonOlcumler } from "../services/api";
 import { getBekleyenSayisi } from "../services/offlineStorage";
 import { useNetworkStatus } from "../hooks/useNetworkStatus";
-import { AuthContext } from "../../App";
+import { AuthContext } from "../context/AuthContext";
 
 const TIP_IKONLARI = {
   Kuyu: "water-pump",
@@ -26,10 +26,10 @@ export default function IstasyonListesiScreen({ navigation }) {
   const [bekleyenSayisi, setBekleyenSayisi] = useState(0);
   const [userInfo, setUserInfo] = useState(null);
   const { isOnline, syncDurumu, manuelSync } = useNetworkStatus();
-  const [stats, setStats] = useState({ 
-    totalAnomalies: 0, 
-    problematicStation: '-', 
-    systemStatus: 'YÜKLENİYOR...', 
+  const [stats, setStats] = useState({
+    totalAnomalies: 0,
+    problematicStation: '-',
+    systemStatus: 'YÜKLENİYOR...',
     statusColor: '#666'
   });
 
@@ -50,15 +50,15 @@ export default function IstasyonListesiScreen({ navigation }) {
         olcumler.forEach(o => {
           const mDate = new Date(o.olcum_tarihi).toDateString();
           if (mDate === today) {
-             const isKritik = o.risk_seviyesi === 'KRİTİK';
-             const isOrta = o.risk_seviyesi === 'ORTA';
-             
-             if (isKritik || isOrta) {
-               totalAnomalies++;
-               stationAnomalyCount[o.istasyon_id] = (stationAnomalyCount[o.istasyon_id] || 0) + 1;
-             }
-             if (isKritik) isSystemCritical = true;
-             if (isOrta) isSystemWarning = true;
+            const isKritik = o.risk_seviyesi === 'KRİTİK';
+            const isOrta = o.risk_seviyesi === 'ORTA';
+
+            if (isKritik || isOrta) {
+              totalAnomalies++;
+              stationAnomalyCount[o.istasyon_id] = (stationAnomalyCount[o.istasyon_id] || 0) + 1;
+            }
+            if (isKritik) isSystemCritical = true;
+            if (isOrta) isSystemWarning = true;
           }
         });
 
@@ -66,9 +66,9 @@ export default function IstasyonListesiScreen({ navigation }) {
         let maxCount = 0;
         Object.keys(stationAnomalyCount).forEach(id => {
           if (stationAnomalyCount[id] > maxCount) {
-             maxCount = stationAnomalyCount[id];
-             const st = veri.find(v => v.id.toString() === id);
-             mostProb = st ? st.ad : `ID: ${id}`;
+            maxCount = stationAnomalyCount[id];
+            const st = veri.find(v => v.id.toString() === id);
+            mostProb = st ? st.ad : `ID: ${id}`;
           }
         });
 
@@ -83,7 +83,7 @@ export default function IstasyonListesiScreen({ navigation }) {
           systemStatus: sysStat,
           statusColor: statCol
         });
-      } catch(e) {
+      } catch (e) {
         console.error("Stats error", e);
       }
     } catch (err) {
@@ -151,11 +151,11 @@ export default function IstasyonListesiScreen({ navigation }) {
       activeOpacity={0.8}
     >
       <View style={styles.kartSol}>
-        <MaterialCommunityIcons 
-          name={TIP_IKONLARI[item.tip] || "map-marker"} 
-          size={32} 
-          color={item.aktif_mi ? "#0056b3" : "#666666"} 
-          style={styles.istasyonIkon} 
+        <MaterialCommunityIcons
+          name={TIP_IKONLARI[item.tip] || "map-marker"}
+          size={32}
+          color={item.aktif_mi ? "#0056b3" : "#666666"}
+          style={styles.istasyonIkon}
         />
         <View style={styles.kartBilgi}>
           <Text style={styles.istasyonAd}>{item.ad}</Text>
@@ -226,27 +226,27 @@ export default function IstasyonListesiScreen({ navigation }) {
       </View>
 
       {/* Başlık */}
-        <View style={styles.araBaslik}>
+      <View style={[styles.araBaslik, { flexDirection: 'column', alignItems: 'flex-start', gap: 12 }]}>
         <View>
           <Text style={styles.araBaslikText}>İstasyon Seç</Text>
           <Text style={styles.araBaslikAlt}>{istasyonlar.length} istasyon</Text>
         </View>
-        <View style={{ flexDirection: "row", gap: 8 }}>
-          <TouchableOpacity style={styles.mapBtn} onPress={() => navigation.navigate("MapScreen")}>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, width: '100%' }}>
+          <TouchableOpacity style={[styles.mapBtn, { width: userInfo?.rol === 'yonetici' ? '48%' : '100%' }]} onPress={() => navigation.navigate("MapScreen")}>
             <MaterialCommunityIcons name="map-marker-radius" size={20} color="#FFFFFF" />
             <Text style={styles.mapBtnText}>Harita</Text>
           </TouchableOpacity>
           {userInfo?.rol === "yonetici" && (
             <>
               <TouchableOpacity
-                style={[styles.mapBtn, { backgroundColor: "#7B2D8B", paddingHorizontal: 10 }]}
+                style={[styles.mapBtn, { backgroundColor: "#7B2D8B", width: '48%' }]}
                 onPress={() => navigation.navigate("SimulatorScreen")}
               >
                 <MaterialCommunityIcons name="lightning-bolt" size={20} color="#FFFFFF" />
                 <Text style={styles.mapBtnText}>Sensör Test</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.mapBtn, { backgroundColor: "#34495E", paddingHorizontal: 10 }]}
+                style={[styles.mapBtn, { backgroundColor: "#34495E", width: '48%' }]}
                 onPress={() => navigation.navigate("AuditLogScreen")}
               >
                 <MaterialCommunityIcons name="shield-account" size={20} color="#FFFFFF" />
@@ -320,14 +320,14 @@ const styles = StyleSheet.create({
   araBaslikText: { fontSize: 18, fontWeight: "700", color: "#333333" },
   araBaslikAlt: { fontSize: 14, color: "#666666" },
   mapBtn: {
-    backgroundColor: "#0056b3", paddingHorizontal: 12, paddingVertical: 8,
-    borderRadius: 8, flexDirection: "row", alignItems: "center", gap: 6
+    backgroundColor: "#0056b3", height: 36, paddingHorizontal: 8,
+    borderRadius: 8, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6
   },
-  mapBtnText: { color: "#FFFFFF", fontWeight: "700", fontSize: 13 },
+  mapBtnText: { color: "#FFFFFF", fontWeight: "700", fontSize: 14 },
   liste: { paddingHorizontal: 16, paddingBottom: 24 },
   kart: {
     backgroundColor: "#FFFFFF", borderRadius: 12,
-    padding: 18, marginBottom: 12, flexDirection: "row",
+    padding: 9, marginBottom: 12, flexDirection: "row",
     justifyContent: "space-between", alignItems: "center",
     borderWidth: 1, borderColor: "rgba(0,0,0,0.05)",
     shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2
@@ -344,7 +344,7 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: "#BBDEFB",
   },
   tipText: { fontSize: 12, color: "#0056b3", fontWeight: "700" },
-  okIcon: { },
+  okIcon: {},
   pasifBadge: { backgroundColor: "#E0E0E0", borderRadius: 8, padding: 6 },
   pasifText: { fontSize: 12, color: "#666666", fontWeight: "600" },
   yukleniyorContainer: { flex: 1, justifyContent: "center", alignItems: "center", gap: 16 },
