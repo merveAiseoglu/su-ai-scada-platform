@@ -17,6 +17,7 @@ services:
   postgres:
     image: postgres:15
     container_name: su-ai-postgres
+    command: postgres -c max_connections=250
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
@@ -79,6 +80,10 @@ services:
     ports:
       - "8080:8000" # Mapped to 8080 to avoid conflict with ChromaDB on host
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 2G
     depends_on:
       postgres:
         condition: service_healthy
