@@ -2,7 +2,7 @@
 // GIS Harita Ekranı — Faz 3
 // Callout yerine onPress + bottom panel (Android/iOS uyumlu)
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View, StyleSheet, Text, ActivityIndicator,
   TouchableOpacity, ScrollView, Modal, Pressable,
@@ -142,14 +142,8 @@ export default function MapScreen({ navigation }) {
                 tracksViewChanges={false}
                 onPress={(e) => {
                   e.stopPropagation();
-                  const isAdmin = userInfo?.rol === 'yonetici';
-                  const isRiskOrtaVeyaKritik = ist.son_risk_seviyesi === 'KRİTİK' || ist.son_risk_seviyesi === 'ORTA';
-                  
-                  if (isAdmin && isRiskOrtaVeyaKritik) {
-                    navigation.navigate('StationHistoryScreen', { station_id: ist.id, station_ad: ist.ad });
-                  } else {
-                    setSecili(ist);
-                  }
+                  // Her rol için markera basınca paneli aç
+                  setSecili(ist);
                 }}
               />
             );
@@ -209,14 +203,22 @@ export default function MapScreen({ navigation }) {
                 <View style={{ flex: 1 }} />
               )}
               
-              {/* Son_olcum_id varsa Analiz Butonu */}
-              {secili.son_olcum_id && (
+              {/* Analiz Butonu (Sadece Yönetici) veya Ölçüm Gir Butonu (Personel) */}
+              {userInfo?.rol === 'yonetici' ? (
                 <TouchableOpacity
                   style={panel.analizBtn}
-                  onPress={() => navigation.navigate("ResultScreen", { olcumId: secili.son_olcum_id })}
+                  onPress={() => navigation.navigate('StationHistoryScreen', { station_id: secili.id, station_ad: secili.ad })}
                 >
-                  <MaterialCommunityIcons name="robot" size={14} color="#FFF" style={{ marginRight: 4 }} />
-                  <Text style={panel.analizBtnText}>Analizi Gor</Text>
+                  <MaterialCommunityIcons name="chart-line" size={14} color="#FFF" style={{ marginRight: 4 }} />
+                  <Text style={panel.analizBtnText}>Analizi Gör</Text>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  style={[panel.analizBtn, { backgroundColor: '#28A745' }]}
+                  onPress={() => navigation.navigate("MeasurementForm", { istasyon: secili })}
+                >
+                  <MaterialCommunityIcons name="plus" size={14} color="#FFF" style={{ marginRight: 4 }} />
+                  <Text style={panel.analizBtnText}>Ölçüm Gir</Text>
                 </TouchableOpacity>
               )}
             </View>
