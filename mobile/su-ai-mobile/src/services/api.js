@@ -3,7 +3,7 @@
 // Backend sunucu IP adresi — fiziksel cihaz/emülatör erişimi için güncellendi.
 
 // ÖNEMLİ: Sunucu IP'si değiştiğinde aşağıdaki BASE_URL'yi güncelleyin.
-export const API_URL = "http://192.168.1.102:8000";
+export const API_URL = "http://192.168.1.104:8080";
 const BASE_URL = API_URL;
 
 let cachedToken = null;
