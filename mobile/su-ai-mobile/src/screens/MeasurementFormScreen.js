@@ -19,7 +19,7 @@ const PARAMETRELER = [
     ikon: "flask",
     birim: "",
     klavye: "numeric",
-    aciklama: "Normal aralık: 6.5 — 9.5",
+    aciklama: "Normal aralık: 6.5 — 8.5",
     renk: "#7C3AED",
   },
   {
@@ -28,7 +28,7 @@ const PARAMETRELER = [
     ikon: "test-tube",
     birim: "mg/L",
     klavye: "numeric",
-    aciklama: "Normal aralık: 0.2 — 3.0",
+    aciklama: "Normal aralık: 0.2 — 0.5 mg/L",
     renk: "#059669",
   },
   {
@@ -37,7 +37,7 @@ const PARAMETRELER = [
     ikon: "water-opacity",
     birim: "NTU",
     klavye: "numeric",
-    aciklama: "Kabul edilebilir: ≤ 4.0 NTU",
+    aciklama: "Kabul edilebilir: < 1.0 NTU",
     renk: "#0284C7",
   },
   {
@@ -86,12 +86,13 @@ export default function MeasurementFormScreen({ navigation, route }) {
     personel_notu: personelNotu || null,
   });
 
-  const herhangiDoluMu = () =>
-    Object.values(degerler).some((v) => v !== "");
+  const zorunluAlanlarDoluMu = () => {
+    return degerler.ph !== "" && degerler.serbest_klor !== "" && degerler.bulaniklik !== "";
+  };
 
   const formGonder = async () => {
-    if (!herhangiDoluMu()) {
-      Alert.alert("Eksik Veri", "Lütfen en az bir ölçüm değeri girin.");
+    if (!zorunluAlanlarDoluMu()) {
+      Alert.alert("Eksik Veri", "Lütfen pH, Serbest Klor ve Bulanıklık değerlerini eksiksiz girin.");
       return;
     }
 

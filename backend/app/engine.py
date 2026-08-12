@@ -56,7 +56,7 @@ async def hesapla_anomali_durumu(db: AsyncSession, olcum_verileri: dict):
             tespit_edilen_anomaliler.append(
                 {"kural": "Düşük Klor", "mesaj": f"Dezenfeksiyon zayıf ({klor} mg/L).", "risk": "ORTA"}
             )
-        elif klor > 2.0:
+        elif klor > 0.5:
             tespit_edilen_anomaliler.append(
                 {"kural": "Yüksek Klor", "mesaj": f"İdeal sınır aşıldı ({klor} mg/L).", "risk": "ORTA"}
             )
