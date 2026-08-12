@@ -72,11 +72,11 @@ async def hesapla_anomali_durumu(db: AsyncSession, olcum_verileri: dict):
             )
 
     if ilet is not None:
-        if ilet > 800:
+        if ilet > 2000:
             tespit_edilen_anomaliler.append(
                 {"kural": "Mineral Anomalisi", "mesaj": f"Kritik seviye ({ilet} µS/cm)!", "risk": "KRİTİK"}
             )
-        elif ilet > 500:
+        elif ilet > 400:
             tespit_edilen_anomaliler.append(
                 {
                     "kural": "Yüksek İletkenlik",

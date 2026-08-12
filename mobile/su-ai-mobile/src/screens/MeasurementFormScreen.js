@@ -46,7 +46,7 @@ const PARAMETRELER = [
     ikon: "lightning-bolt",
     birim: "µS/cm",
     klavye: "numeric",
-    aciklama: "Kabul edilebilir: ≤ 2500",
+    aciklama: "Kabul edilebilir: ≤ 2000 µS/cm",
     renk: "#D97706",
   },
   {
