@@ -18,17 +18,30 @@ import { getOlcum } from "../services/api";
 import RenkRozeti from "../components/RenkRozeti";
 
 // ---------------------------------------------------------------------------
+// Markdown temizleyici — LLM **bold**, *italic*, - bullet’ları düzenler
+// ---------------------------------------------------------------------------
+const stripMarkdown = (text) => {
+  if (!text) return '';
+  return text
+    .replace(/\*\*(.*?)\*\*/g, '$1')   // **bold** → bold
+    .replace(/\*(.*?)\*/g, '$1')        // *italic* → italic
+    .replace(/^- /gm, '\u2022 ')        // - item → • item
+    .replace(/^#{1,6}\s+/gm, '')        // ## Başlık → Başlık
+    .trim();
+};
+
+// ---------------------------------------------------------------------------
 // Sabitler
 // ---------------------------------------------------------------------------
 
 const POLLING_INTERVAL_MS = 3000;   // 3 saniyede bir kontrol
-const POLLING_MAX_DENEME  = 60;     // Maksimum 60 deneme (~3 dakika), sonra HATA kabul
+const POLLING_MAX_DENEME = 60;     // Maksimum 60 deneme (~3 dakika), sonra HATA kabul
 
 const RISK_KONFIG = {
-  NORMAL:   { renk: "#00D453", arkaplan: "rgba(0,212,83,0.12)",   kenar: "rgba(0,212,83,0.3)",   ikon: "check-circle", etiket: "NORMAL",      aciklama: "Tüm parametreler kabul edilebilir sınırlar içinde." },
-  "DÜŞÜK":  { renk: "#FFD60A", arkaplan: "rgba(255,214,10,0.12)", kenar: "rgba(255,214,10,0.3)", ikon: "alert-circle-outline", etiket: "DÜŞÜK RİSK",  aciklama: "Yakın takip önerilir." },
-  ORTA:     { renk: "#FF9F0A", arkaplan: "rgba(255,159,10,0.12)", kenar: "rgba(255,159,10,0.3)", ikon: "alert", etiket: "ORTA RİSK",   aciklama: "Önlem alınması gerekebilir." },
-  "KRİTİK": { renk: "#FF3B30", arkaplan: "rgba(255,59,48,0.12)",  kenar: "rgba(255,59,48,0.4)",  ikon: "alert-octagon", etiket: "KRİTİK",      aciklama: "ACİL müdahale gerekli!" },
+  NORMAL: { renk: "#00D453", arkaplan: "rgba(0,212,83,0.12)", kenar: "rgba(0,212,83,0.3)", ikon: "check-circle", etiket: "NORMAL", aciklama: "Tüm parametreler kabul edilebilir sınırlar içinde." },
+  "DÜŞÜK": { renk: "#FFD60A", arkaplan: "rgba(255,214,10,0.12)", kenar: "rgba(255,214,10,0.3)", ikon: "alert-circle-outline", etiket: "DÜŞÜK RİSK", aciklama: "Yakın takip önerilir." },
+  ORTA: { renk: "#FF9F0A", arkaplan: "rgba(255,159,10,0.12)", kenar: "rgba(255,159,10,0.3)", ikon: "alert", etiket: "ORTA RİSK", aciklama: "Önlem alınması gerekebilir." },
+  "KRİTİK": { renk: "#FF3B30", arkaplan: "rgba(255,59,48,0.12)", kenar: "rgba(255,59,48,0.4)", ikon: "alert-octagon", etiket: "KRİTİK", aciklama: "ACİL müdahale gerekli!" },
 };
 
 // ---------------------------------------------------------------------------
@@ -61,14 +74,15 @@ function SkeletonBox({ w, h, style }) {
 // ---------------------------------------------------------------------------
 
 function GuvenilirlikPuaniKarti({ metrikler }) {
-  const { uyum_puani, gerekce } = metrikler;
+  const uyum_puani = metrikler?.uygunluk_puani ?? metrikler?.uyum_puani ?? 0;
+  const gerekce = metrikler?.degerlendirme_notu ?? metrikler?.gerekce ?? "";
   const [gerekceAcik, setGerekceAcik] = useState(false);
   const barAnim = useRef(new Animated.Value(0)).current;
 
-  const yuksekGuven   = uyum_puani >= 70;
-  const puanRenk      = yuksekGuven ? "#00D453" : "#FF3B30";
-  const puanArkaplan  = yuksekGuven ? "rgba(0,212,83,0.1)"   : "rgba(255,59,48,0.1)";
-  const puanKenar     = yuksekGuven ? "rgba(0,212,83,0.25)"  : "rgba(255,59,48,0.25)";
+  const yuksekGuven = uyum_puani >= 70;
+  const puanRenk = yuksekGuven ? "#00D453" : "#FF3B30";
+  const puanArkaplan = yuksekGuven ? "rgba(0,212,83,0.1)" : "rgba(255,59,48,0.1)";
+  const puanKenar = yuksekGuven ? "rgba(0,212,83,0.25)" : "rgba(255,59,48,0.25)";
 
   useEffect(() => {
     Animated.timing(barAnim, {
@@ -89,23 +103,18 @@ function GuvenilirlikPuaniKarti({ metrikler }) {
       {/* Başlık ve rozet */}
       <View style={styles.guvenBaslikSatir}>
         <Text style={styles.guvenBaslik}>AI Güvenilirlik Puanı</Text>
-        <View style={[styles.guvenRozetBadge, { backgroundColor: yuksekGuven ? "rgba(0,212,83,0.2)" : "rgba(255,59,48,0.2)", borderColor: puanRenk + "55", flexDirection: 'row', alignItems: 'center' }]}>
-          <MaterialCommunityIcons name={yuksekGuven ? "check-circle" : "alert-circle"} size={14} color={puanRenk} style={{marginRight: 4}} />
+        <View style={[styles.guvenRozetBadge, {
+          backgroundColor: yuksekGuven ? "rgba(0,212,83,0.15)" : "rgba(255,59,48,0.15)",
+          borderColor: yuksekGuven ? "rgba(0,212,83,0.4)" : "rgba(255,59,48,0.4)",
+          flexDirection: 'row',
+          alignItems: 'center'
+        }]}>
+          <MaterialCommunityIcons name={yuksekGuven ? "check-circle" : "alert-circle"} size={14} color={puanRenk} style={{ marginRight: 4 }} />
           <Text style={[styles.guvenRozetText, { color: puanRenk }]}>
             {yuksekGuven ? "Doğrulanmış Öneri" : "İnsan Onayı Bekliyor"}
           </Text>
         </View>
       </View>
-
-      {/* Düşük güven uyarısı */}
-      {!yuksekGuven && (
-        <View style={styles.guvenUyariKutusu}>
-          <MaterialCommunityIcons name="alert-circle" size={16} color="#DC3545" style={{marginTop: 2, marginRight: 6}} />
-          <Text style={styles.guvenUyariText}>
-            Düşük Güvenilirlik: Bu öneri insan uzman tarafından doğrulanmalıdır.
-          </Text>
-        </View>
-      )}
 
       {/* Puan + Progress Bar */}
       <View style={styles.guvenPuanSatir}>
@@ -125,7 +134,7 @@ function GuvenilirlikPuaniKarti({ metrikler }) {
         </Text>
       </TouchableOpacity>
       {gerekceAcik && (
-        <Text style={styles.gerekceText}>{gerekce}</Text>
+        <Text style={styles.gerekceText}>{stripMarkdown(gerekce)}</Text>
       )}
     </View>
   );
@@ -206,10 +215,10 @@ export default function SonucScreen({ navigation, route }) {
   const [analizDurumu, setAnalizDurumu] = useState("BEKLİYOR");
   const [pollingHata, setPollingHata] = useState(false);
 
-  const pollingRef    = useRef(null);
-  const denemeRef     = useRef(0);
-  const fadeAnim      = useRef(new Animated.Value(0)).current;
-  const pulseAnim     = useRef(new Animated.Value(1)).current;
+  const pollingRef = useRef(null);
+  const denemeRef = useRef(0);
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const pulseAnim = useRef(new Animated.Value(1)).current;
 
   // Sonuç geldiğinde fade-in animasyonu başlat
   const fadeIn = useCallback(() => {
@@ -221,7 +230,7 @@ export default function SonucScreen({ navigation, route }) {
     Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, { toValue: 1.05, duration: 600, useNativeDriver: true }),
-        Animated.timing(pulseAnim, { toValue: 1,    duration: 600, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1, duration: 600, useNativeDriver: true }),
       ])
     ).start();
   }, [pulseAnim]);
@@ -268,7 +277,7 @@ export default function SonucScreen({ navigation, route }) {
   // ---------------------------------------------------------------------------
 
   const riskSeviyesi = olcum?.risk_seviyesi || "NORMAL";
-  const konfig       = RISK_KONFIG[riskSeviyesi] || RISK_KONFIG.NORMAL;
+  const konfig = RISK_KONFIG[riskSeviyesi] || RISK_KONFIG.NORMAL;
 
   // Anomali detaylarını ilk API yanıtından veya ölçüm verisinden çek
   const anomaliDetaylari = ilkAnalizSonucu?.detaylar || [];
@@ -358,10 +367,15 @@ export default function SonucScreen({ navigation, route }) {
           <RenkRozeti riskSeviyesi={riskSeviyesi} />
           <Text style={styles.rozetAciklama}>{konfig.aciklama}</Text>
           <View style={styles.istasyonSatir}>
-            <MaterialCommunityIcons name="map-marker" size={16} color="#333333" style={{marginRight: 4}} />
+            <MaterialCommunityIcons name="map-marker" size={16} color="#333333" style={{ marginRight: 4 }} />
             <Text style={styles.istasyonSatirText}>{istasyon?.ad || "İstasyon"}</Text>
           </View>
         </Animated.View>
+
+        {/* AI GÜVENİLİRLİK PUANI — LLM-as-a-Judge */}
+        {olcum.metrikler && (
+          <GuvenilirlikPuaniKarti metrikler={olcum.metrikler} />
+        )}
 
         {/* ANOMALİ DETAYLARI */}
         {anomaliDetaylari.length > 0 && (
@@ -388,33 +402,32 @@ export default function SonucScreen({ navigation, route }) {
         {/* LLM TEKNİK AKSİYON ÖNERİSİ KARTI */}
         <View style={styles.bolum}>
           <View style={styles.llmBaslikSatir}>
-            <Text style={styles.bolumBaslik}>Teknik Aksiyon Önerisi</Text>
+            <Text style={styles.llmBaslikText}>Teknik Aksiyon Önerisi</Text>
             <View style={styles.llmBadge}>
               <Text style={styles.llmBadgeText}>AI ✓</Text>
             </View>
           </View>
           <View style={styles.llmKart}>
-            <Text style={styles.llmOneri}>
-              {olcum.aksiyon_onerisi || "Aksiyon önerisi mevcut değil."}
-            </Text>
+            {stripMarkdown(olcum.aksiyon_onerisi || "Aksiyon önerisi mevcut değil.")
+              .split("\n")
+              .filter(satir => satir.trim())
+              .map((satir, idx) => (
+                <Text key={idx} style={styles.llmOneri}>{satir}</Text>
+              ))
+            }
           </View>
         </View>
-
-        {/* AI GÜVENİLİRLİK PUANI — LLM-as-a-Judge */}
-        {olcum.metrikler && (
-          <GuvenilirlikPuaniKarti metrikler={olcum.metrikler} />
-        )}
 
         {/* Ölçüm özeti */}
         <View style={styles.bolum}>
           <Text style={styles.bolumBaslik}>Ölçüm Özeti</Text>
           <View style={styles.olcumOzetGrid}>
             {[
-              { etiket: "pH",         deger: olcum.ph,           birim: "" },
-              { etiket: "Klor",       deger: olcum.serbest_klor, birim: " mg/L" },
-              { etiket: "Bulanıklık", deger: olcum.bulaniklik,   birim: " NTU" },
-              { etiket: "İletkenlik", deger: olcum.iletkenlik,   birim: " µS/cm" },
-              { etiket: "Sıcaklık",  deger: olcum.sicaklik,     birim: " °C" },
+              { etiket: "pH", deger: olcum.ph, birim: "" },
+              { etiket: "Klor", deger: olcum.serbest_klor, birim: " mg/L" },
+              { etiket: "Bulanıklık", deger: olcum.bulaniklik, birim: " NTU" },
+              { etiket: "İletkenlik", deger: olcum.iletkenlik, birim: " µS/cm" },
+              { etiket: "Sıcaklık", deger: olcum.sicaklik, birim: " °C" },
             ].filter(p => p.deger !== null && p.deger !== undefined).map((p, i) => (
               <View key={i} style={styles.olcumOzetKarti}>
                 <Text style={styles.olcumOzetEtiket}>{p.etiket}</Text>
@@ -429,7 +442,7 @@ export default function SonucScreen({ navigation, route }) {
           <Text style={styles.yeniOlcumBtnText}>+ Yeni Ölçüm Gir</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.anaSayfaBtn} onPress={() => navigation.popToTop()} activeOpacity={0.85}>
-          <MaterialCommunityIcons name="home-outline" size={20} color="#666666" style={{marginRight: 8}} />
+          <MaterialCommunityIcons name="home-outline" size={20} color="#666666" style={{ marginRight: 8 }} />
           <Text style={styles.anaSayfaBtnText}>İstasyon Listesine Dön</Text>
         </TouchableOpacity>
       </Animated.ScrollView>
@@ -445,15 +458,15 @@ const styles = StyleSheet.create({
   kapsayici: { flex: 1, backgroundColor: "#F8F9FA" },
   header: {
     flexDirection: "row", alignItems: "center", justifyContent: "space-between",
-    paddingHorizontal: 16, paddingVertical: 14,
+    paddingHorizontal: 16, paddingVertical: 10,
     borderBottomWidth: 1, borderBottomColor: "rgba(0,0,0,0.05)",
     backgroundColor: "#FFFFFF"
   },
-  geriBtn: { padding: 8 },
-  geriBtnText: { color: "#0056b3", fontSize: 16, fontWeight: "600" },
-  headerBaslik: { fontSize: 18, fontWeight: "700", color: "#333333" },
-  headerOlcumId: { fontSize: 14, color: "#666666", fontWeight: "600" },
-  icerik: { padding: 16, paddingBottom: 48 },
+  geriBtn: { padding: 6 },
+  geriBtnText: { color: "#0056b3", fontSize: 14, fontWeight: "600" },
+  headerBaslik: { fontSize: 16, fontWeight: "700", color: "#333333" },
+  headerOlcumId: { fontSize: 12, color: "#666666", fontWeight: "600" },
+  icerik: { padding: 14, paddingBottom: 32 },
 
   // ---- Spinner / Loading ----
   aiSpinnerKapsayici: {
@@ -497,113 +510,117 @@ const styles = StyleSheet.create({
 
   // ---- Rozet ----
   rozetKapsayici: {
-    backgroundColor: "#FFFFFF", borderRadius: 16, padding: 24,
-    alignItems: "center", marginBottom: 20,
+    backgroundColor: "#FFFFFF", borderRadius: 14, padding: 16,
+    alignItems: "center", marginBottom: 14,
     borderWidth: 1, borderColor: "rgba(0,0,0,0.05)",
-    shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2
+    shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 2
   },
-  rozetIkon: { marginBottom: 16 },
-  rozetAciklama: { fontSize: 15, color: "#666666", textAlign: "center", lineHeight: 22, marginTop: 16 },
+  rozetIkon: { marginBottom: 10 },
+  rozetAciklama: { fontSize: 13, color: "#666666", textAlign: "center", lineHeight: 20, marginTop: 10 },
   istasyonSatir: {
-    marginTop: 16, backgroundColor: "#F8F9FA", flexDirection: "row", alignItems: "center",
-    borderRadius: 8, paddingHorizontal: 16, paddingVertical: 8,
+    marginTop: 10, backgroundColor: "#F8F9FA", flexDirection: "row", alignItems: "center",
+    borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6,
   },
-  istasyonSatirText: { fontSize: 14, color: "#333333", fontWeight: "600" },
+  istasyonSatirText: { fontSize: 13, color: "#333333", fontWeight: "600" },
 
   // ---- Bölüm ----
-  bolum: { marginBottom: 20 },
+  bolum: { marginBottom: 14 },
   bolumBaslik: {
-    fontSize: 14, fontWeight: "700", color: "#666666",
-    letterSpacing: 1, textTransform: "uppercase", marginBottom: 12,
+    fontSize: 11, fontWeight: "700", color: "#888888",
+    letterSpacing: 0.8, textTransform: "uppercase", marginBottom: 8,
   },
 
   // ---- Anomali ----
   anomaliSatir: {
-    backgroundColor: "#FFFFFF", borderRadius: 12, padding: 14,
-    marginBottom: 8, borderLeftWidth: 4,
-    shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 2, elevation: 1
+    backgroundColor: "#FFFFFF", borderRadius: 10, padding: 12,
+    marginBottom: 6, borderLeftWidth: 3,
+    shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 2, elevation: 1
   },
-  anomaliHeader: { flexDirection: "row", alignItems: "center", marginBottom: 6, gap: 8 },
+  anomaliHeader: { flexDirection: "row", alignItems: "center", marginBottom: 4, gap: 6 },
   anomaliIkon: { marginRight: 2 },
-  anomaliKural: { fontSize: 14, fontWeight: "700", flex: 1 },
-  anomaliRiskBadge: { borderWidth: 1, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
-  anomaliRiskText: { fontSize: 10, fontWeight: "700" },
-  anomaliMesaj: { fontSize: 14, color: "#666666", lineHeight: 20 },
+  anomaliKural: { fontSize: 13, fontWeight: "700", flex: 1 },
+  anomaliRiskBadge: { borderWidth: 1, borderRadius: 5, paddingHorizontal: 5, paddingVertical: 2 },
+  anomaliRiskText: { fontSize: 9, fontWeight: "700" },
+  anomaliMesaj: { fontSize: 13, color: "#666666", lineHeight: 19 },
 
   // ---- LLM Kart ----
-  llmBaslikSatir: { flexDirection: "row", alignItems: "center", marginBottom: 12, gap: 8 },
+  llmBaslikSatir: { flexDirection: "row", alignItems: "center", marginBottom: 10, gap: 8 },
+  llmBaslikText: {
+    fontSize: 15, fontWeight: "700", color: "#0056b3", letterSpacing: 0.3,
+  },
   llmBadge: {
-    backgroundColor: "#E3F2FD", borderRadius: 6,
-    paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: "#BBDEFB",
+    backgroundColor: "#E3F2FD", borderRadius: 5,
+    paddingHorizontal: 6, paddingVertical: 2, borderWidth: 1, borderColor: "#BBDEFB",
   },
-  llmBadgeText: { color: "#0056b3", fontSize: 11, fontWeight: "800", letterSpacing: 1 },
+  llmBadgeText: { color: "#0056b3", fontSize: 10, fontWeight: "800", letterSpacing: 0.8 },
   llmKart: {
-    backgroundColor: "#FFFFFF", borderRadius: 16, padding: 20,
-    borderWidth: 1, borderColor: "rgba(0,0,0,0.05)",
-    shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2
+    backgroundColor: "#FFFFFF", borderRadius: 12, padding: 16,
+    borderWidth: 1, borderColor: "rgba(0,86,179,0.1)",
+    shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 2
   },
-  llmOneri: { color: "#333333", fontSize: 15, lineHeight: 24, fontWeight: "500" },
+  llmOneri: { color: "#333333", fontSize: 14, lineHeight: 23, fontWeight: "400", marginBottom: 6 },
 
   // ---- Ölçüm Özet Grid ----
-  olcumOzetGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  olcumOzetGrid: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
   olcumOzetKarti: {
-    backgroundColor: "#FFFFFF", borderRadius: 12, padding: 14,
-    alignItems: "center", minWidth: "30%", flex: 1,
+    backgroundColor: "#FFFFFF", borderRadius: 10, padding: 10,
+    alignItems: "center", width: "31%",
     borderWidth: 1, borderColor: "rgba(0,0,0,0.05)",
-    shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 2, elevation: 1
+    shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 2, elevation: 1
   },
-  olcumOzetEtiket: { fontSize: 12, color: "#666666", marginBottom: 4, fontWeight: "600" },
-  olcumOzetDeger: { fontSize: 16, fontWeight: "700", color: "#333333" },
+  olcumOzetEtiket: { fontSize: 11, color: "#888888", marginBottom: 3, fontWeight: "600" },
+  olcumOzetDeger: { fontSize: 13, fontWeight: "700", color: "#333333" },
 
   // ---- Güvenilirlik Puanı Kartı ----
   guvenBolum: {
-    borderRadius: 16, borderWidth: 1, borderColor: "rgba(0,0,0,0.05)", padding: 18, marginBottom: 20,
-    backgroundColor: "#FFFFFF", shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2
+    borderRadius: 12, borderWidth: 1, borderColor: "rgba(0,0,0,0.05)", padding: 14, marginBottom: 14,
+    backgroundColor: "#FFFFFF", shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 2
   },
   guvenBaslikSatir: {
-    flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12,
+    flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 10,
   },
   guvenBaslik: {
-    fontSize: 14, fontWeight: "700", color: "#666666",
-    letterSpacing: 1, textTransform: "uppercase",
+    fontSize: 11, fontWeight: "700", color: "#888888",
+    letterSpacing: 0.8, textTransform: "uppercase",
   },
   guvenRozetBadge: {
-    borderWidth: 1, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 4,
+    borderWidth: 1, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2,
   },
-  guvenRozetText: { fontSize: 12, fontWeight: "800" },
+  guvenRozetText: { fontSize: 10, fontWeight: "700" },
+
   guvenUyariKutusu: {
-    backgroundColor: "#FFEBEE", borderRadius: 10, padding: 10,
-    borderWidth: 1, borderColor: "#FFCDD2", marginBottom: 12, flexDirection: "row", alignItems: "flex-start",
+    backgroundColor: "#FFEBEE", borderRadius: 8, padding: 8,
+    borderWidth: 1, borderColor: "#FFCDD2", marginBottom: 10, flexDirection: "row", alignItems: "flex-start",
   },
-  guvenUyariText: { color: "#DC3545", fontSize: 13, lineHeight: 18, fontWeight: "600", flex: 1 },
+  guvenUyariText: { color: "#DC3545", fontSize: 12, lineHeight: 17, fontWeight: "600", flex: 1 },
   guvenPuanSatir: {
-    flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 14,
+    flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 10,
   },
-  guvenPuan: { fontSize: 38, fontWeight: "900", letterSpacing: -1 },
-  guvenPuanBirim: { fontSize: 16, color: "#999999", alignSelf: "flex-end", marginBottom: 6 },
+  guvenPuan: { fontSize: 24, fontWeight: "900", letterSpacing: -1 },
+  guvenPuanBirim: { fontSize: 13, color: "#999999", alignSelf: "flex-end", marginBottom: 4 },
   guvenBarKapsayici: {
-    flex: 1, height: 8, backgroundColor: "#E0E0E0",
-    borderRadius: 4, overflow: "hidden",
+    flex: 1, height: 6, backgroundColor: "#E0E0E0",
+    borderRadius: 3, overflow: "hidden",
   },
-  guvenBar: { height: "100%", borderRadius: 4 },
-  gerekceToggle: { paddingVertical: 6 },
-  gerekceToggleText: { fontSize: 14, color: "#0056b3", fontWeight: "600" },
+  guvenBar: { height: "100%", borderRadius: 3 },
+  gerekceToggle: { paddingVertical: 4 },
+  gerekceToggleText: { fontSize: 13, color: "#0056b3", fontWeight: "600" },
   gerekceText: {
-    fontSize: 14, color: "#666666", lineHeight: 22,
-    marginTop: 8, paddingTop: 12,
+    fontSize: 13, color: "#666666", lineHeight: 20,
+    marginTop: 6, paddingTop: 10,
     borderTopWidth: 1, borderTopColor: "rgba(0,0,0,0.05)",
   },
 
   // ---- Butonlar ----
   yeniOlcumBtn: {
-    backgroundColor: "#0056b3", borderRadius: 12, paddingVertical: 18,
-    alignItems: "center", marginBottom: 12,
-    shadowColor: "#0056b3", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 4,
+    backgroundColor: "#0056b3", borderRadius: 10, paddingVertical: 13,
+    alignItems: "center", marginBottom: 10,
+    shadowColor: "#0056b3", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.18, shadowRadius: 6, elevation: 3,
   },
-  yeniOlcumBtnText: { color: "#FFFFFF", fontSize: 18, fontWeight: "700" },
+  yeniOlcumBtnText: { color: "#FFFFFF", fontSize: 15, fontWeight: "700" },
   anaSayfaBtn: {
-    backgroundColor: "#FFFFFF", borderRadius: 12, paddingVertical: 18,
+    backgroundColor: "#FFFFFF", borderRadius: 10, paddingVertical: 13,
     alignItems: "center", justifyContent: "center", flexDirection: "row", borderWidth: 1, borderColor: "#E0E0E0",
   },
-  anaSayfaBtnText: { color: "#666666", fontSize: 16, fontWeight: "700" },
+  anaSayfaBtnText: { color: "#666666", fontSize: 14, fontWeight: "600" },
 });
