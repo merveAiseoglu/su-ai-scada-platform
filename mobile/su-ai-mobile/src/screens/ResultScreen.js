@@ -437,6 +437,16 @@ export default function SonucScreen({ navigation, route }) {
           </View>
         </View>
 
+        {/* Personel Notu */}
+        {olcum.personel_notu && olcum.personel_notu.trim() !== "" && (
+          <View style={styles.bolum}>
+            <Text style={styles.bolumBaslik}>Personel Notu</Text>
+            <View style={styles.personelNotuKutusu}>
+              <Text style={styles.personelNotuMetin}>{olcum.personel_notu}</Text>
+            </View>
+          </View>
+        )}
+
         {/* Butonlar */}
         <TouchableOpacity style={styles.yeniOlcumBtn} onPress={() => navigation.goBack()} activeOpacity={0.85}>
           <Text style={styles.yeniOlcumBtnText}>+ Yeni Ölçüm Gir</Text>
@@ -570,6 +580,12 @@ const styles = StyleSheet.create({
   },
   olcumOzetEtiket: { fontSize: 11, color: "#888888", marginBottom: 3, fontWeight: "600" },
   olcumOzetDeger: { fontSize: 13, fontWeight: "700", color: "#333333" },
+
+  personelNotuKutusu: {
+    backgroundColor: "#FFFFFF", borderRadius: 10, padding: 12,
+    borderWidth: 1, borderColor: "rgba(0,0,0,0.05)",
+  },
+  personelNotuMetin: { fontSize: 14, color: "#333333", lineHeight: 20 },
 
   // ---- Güvenilirlik Puanı Kartı ----
   guvenBolum: {
