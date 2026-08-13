@@ -232,9 +232,13 @@ export default function IstasyonListesiScreen({ navigation }) {
           <Text style={styles.araBaslikAlt}>{istasyonlar.length} istasyon</Text>
         </View>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, width: '100%' }}>
-          <TouchableOpacity style={[styles.mapBtn, { width: userInfo?.rol === 'yonetici' ? '48%' : '100%' }]} onPress={() => navigation.navigate("MapScreen")}>
+          <TouchableOpacity style={[styles.mapBtn, { width: '48%' }]} onPress={() => navigation.navigate("MapScreen")}>
             <MaterialCommunityIcons name="map-marker-radius" size={20} color="#FFFFFF" />
             <Text style={styles.mapBtnText}>Harita</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.mapBtn, { backgroundColor: "#0F766E", width: '48%' }]} onPress={() => navigation.navigate("GecmisOlcumlerimScreen")}>
+            <MaterialCommunityIcons name="history" size={20} color="#FFFFFF" />
+            <Text style={styles.mapBtnText}>Geçmiş Ölçümlerim</Text>
           </TouchableOpacity>
           {userInfo?.rol === "yonetici" && (
             <>

@@ -37,7 +37,7 @@ const stripMarkdown = (text) => {
 const POLLING_INTERVAL_MS = 3000;   // 3 saniyede bir kontrol
 const POLLING_MAX_DENEME = 60;     // Maksimum 60 deneme (~3 dakika), sonra HATA kabul
 
-const RISK_KONFIG = {
+export const RISK_KONFIG = {
   NORMAL: { renk: "#00D453", arkaplan: "rgba(0,212,83,0.12)", kenar: "rgba(0,212,83,0.3)", ikon: "check-circle", etiket: "NORMAL", aciklama: "Tüm parametreler kabul edilebilir sınırlar içinde." },
   "DÜŞÜK": { renk: "#FFD60A", arkaplan: "rgba(255,214,10,0.12)", kenar: "rgba(255,214,10,0.3)", ikon: "alert-circle-outline", etiket: "DÜŞÜK RİSK", aciklama: "Yakın takip önerilir." },
   ORTA: { renk: "#FF9F0A", arkaplan: "rgba(255,159,10,0.12)", kenar: "rgba(255,159,10,0.3)", ikon: "alert", etiket: "ORTA RİSK", aciklama: "Önlem alınması gerekebilir." },

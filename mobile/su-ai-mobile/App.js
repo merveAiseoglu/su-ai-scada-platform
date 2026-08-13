@@ -15,6 +15,7 @@ import StationHistoryScreen from "./src/screens/StationHistoryScreen";
 import SimulatorScreen from "./src/screens/SimulatorScreen";
 import AuditLogScreen from "./src/screens/AuditLogScreen";
 import LoginScreen from "./src/screens/LoginScreen";
+import GecmisOlcumlerimScreen from "./src/screens/GecmisOlcumlerimScreen";
 import { kanallarOlustur } from "./src/services/notificationService";
 import { getToken } from "./src/services/api";
 import { AuthContext } from "./src/context/AuthContext";
@@ -79,6 +80,11 @@ export default function App() {
             <Stack.Screen
               name="StationHistoryScreen"
               component={StationHistoryScreen}
+              options={{ animation: "slide_from_right" }}
+            />
+            <Stack.Screen
+              name="GecmisOlcumlerimScreen"
+              component={GecmisOlcumlerimScreen}
               options={{ animation: "slide_from_right" }}
             />
             <Stack.Screen
