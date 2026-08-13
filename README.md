@@ -1,5 +1,56 @@
 # Su-AI Project
 
+## Architecture
+
+Su-AI is an IoT + LLM-powered water quality monitoring platform built for Sanliurfa Water Authority. It combines a rule-based anomaly engine with a hybrid LLM layer (cloud-first with local fallback) and RAG-based institutional memory to turn sensor readings into actionable technical recommendations for field personnel.
+
+```mermaid
+flowchart TD
+    classDef frontend fill:#3b82f6,stroke:#1e40af,stroke-width:2px,color:white;
+    classDef backend fill:#10b981,stroke:#047857,stroke-width:2px,color:white;
+    classDef database fill:#f59e0b,stroke:#b45309,stroke-width:2px,color:white;
+    classDef ai fill:#8b5cf6,stroke:#5b21b6,stroke-width:2px,color:white;
+    classDef broker fill:#ef4444,stroke:#b91c1c,stroke-width:2px,color:white;
+    classDef metrics fill:#f43f5e,stroke:#be123c,stroke-width:2px,color:white;
+    classDef external fill:#6b7280,stroke:#374151,stroke-width:2px,color:white;
+
+    Mobile["React Native App<br/>(Field Personnel/Admin)"]:::frontend
+    Sensors["IoT Sensors<br/>(Stations/Nodes)"]:::external
+
+    subgraph Su_AI_System [Su-AI System Architecture - Docker Compose]
+        MQTT["Eclipse Mosquitto<br/>(MQTT Broker)"]:::broker
+        FastAPI["FastAPI Backend<br/>(Core API, Rule Engine)"]:::backend
+
+        subgraph Data_Storage [Data Layer]
+            Postgres[("PostgreSQL<br/>(Organization, Istasyon, SuOlcumu)")]:::database
+            Chroma[("ChromaDB<br/>(Vector DB, RAG Memory)")]:::database
+        end
+
+        subgraph AI_Layer [Hybrid LLM Layer]
+            Ollama["Ollama - Local<br/>(llama3.2:1b Edge Fallback)"]:::ai
+            OpenAI["OpenAI API<br/>(gpt-4o-mini Primary)"]:::ai
+        end
+
+        subgraph Observability [Monitoring and Observability]
+            Prometheus["Prometheus<br/>(Metrics Scraper)"]:::metrics
+            Grafana["Grafana<br/>(Dashboards)"]:::metrics
+        end
+    end
+
+    Mobile <==>|HTTP/REST API| FastAPI
+    Sensors ==>|"Publishes to su-ai/stations/+/measurements"| MQTT
+    MQTT ==>|Subscribes and processes| FastAPI
+
+    FastAPI <==>|SQLAlchemy AsyncPG| Postgres
+    FastAPI <==>|Semantic Search / Embeddings| Chroma
+
+    FastAPI ==>|Prompt and RAG Context| OpenAI
+    FastAPI -.->|Fallback if cloud fails| Ollama
+
+    Prometheus ==>|Scrapes /metrics| FastAPI
+    Grafana <==>|Queries metrics| Prometheus
+```
+
 ## Getting Started with Docker
 
 We provide a production-grade Docker Compose setup that orchestrates all necessary backend services (FastAPI, PostgreSQL, ChromaDB, and Ollama) with a single command.
