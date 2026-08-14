@@ -154,11 +154,6 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-@app.get("/metrics")
-async def metrics_endpoint():
-    """Custom metrics page just in case we need it outside of Instrumentator."""
-    return {"message": "Metrics are exported at /metrics by Prometheus Instrumentator"}
-
 # ---------------------------------------------------------------------------
 # Reports Endpoint
 # ---------------------------------------------------------------------------
@@ -783,6 +778,7 @@ async def create_olcum(
     Sadece yetkili kullanıcılar erişebilir.
     """
     # 1. İstasyon kontrolü
+    print(f"\n[MOBİL_GELEN_HAM_PAYLOAD] {olcum.model_dump()}")
     result = await db.execute(
         select(models.Istasyon)
         .filter(models.Istasyon.id == olcum.istasyon_id, models.Istasyon.organization_id == current_user.organization_id)
@@ -807,6 +803,7 @@ async def create_olcum(
 
     # 3. Kural motorunu çalıştır (senkron, ~ms) — risk_seviyesi'ni hemen yaz
     analiz_girdisi = _olcum_to_analiz_girdisi(db_olcum)
+    print(f"[KURAL_MOTORU_ANALIZ_GIRDISI] {analiz_girdisi}")
     kural_motoru_sonucu = await hesapla_anomali_durumu(db, analiz_girdisi)
 
     db_olcum.risk_seviyesi = kural_motoru_sonucu.get("en_yuksek_risk_seviyesi", "NORMAL")
