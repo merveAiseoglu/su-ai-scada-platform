@@ -56,17 +56,22 @@ async def seed_data():
                     risk_seviyesi="KRİTİK",
                     saha_uyarisi="Suyun asidik veya bazik dengesi bozulmuş. Şebekeye verilmesi uygun değildir.",
                 ),
+                # Not: Buradaki 1.0 NTU değeri kritik bulanıklık eşiğinden (5.0 NTU) farklıdır;
+                # burada düşük klorla birlikte kombinasyonel erken uyarı amacıyla bilinçli olarak daha düşük tutulmuştur.
                 models.AnomaliKurali(
                     kural_adi="Düşük Klor + Bulanıklık",
                     kural_mantigi="serbest_klor < 0.2 and bulaniklik > 1.0",
                     risk_seviyesi="ORTA",
                     saha_uyarisi="Klor seviyesi düşük ve bulanıklık var. Mikrobiyolojik kirlilik riski yüksek, dezenfeksiyon dozu artırılmalı.",
                 ),
+                # Not: Önceki 'iletkenlik > 2500' kuralı, engine.py içerisindeki hardcoded TS 266 KRİTİK (>2000)
+                # ve ORTA (>400) kurallarının gölgesinde kaldığı ve hiçbir zaman nihai risk sonucunu belirleyemediği için
+                # DÜŞÜK seviye kuralı su kalitesi ve klor stabilitesi açısından kritik olan 'sıcaklık' parametresine taşındı.
                 models.AnomaliKurali(
-                    kural_adi="Yüksek İletkenlik",
-                    kural_mantigi="iletkenlik > 2500",
+                    kural_adi="Yüksek Sıcaklık",
+                    kural_mantigi="sicaklik > 25.0",
                     risk_seviyesi="DÜŞÜK",
-                    saha_uyarisi="İletkenlik yasal sınırın üzerinde. Çözünmüş madde miktarında artış var.",
+                    saha_uyarisi="Su sıcaklığı mevsim normallerinin üzerinde (25°C üzeri). Yüksek sıcaklık klor uçuculuğunu artırabilir ve mikrobiyolojik üremeyi hızlandırabilir, klor seviyesi yakından takip edilmelidir.",
                 ),
             ]
             db.add_all(kurallar)

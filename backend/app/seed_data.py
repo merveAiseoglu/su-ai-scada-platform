@@ -30,9 +30,9 @@ SEED_DATA = [
     {
         "parametre_adi": "bulaniklik",
         "min_deger": 0.0,
-        "max_deger": 1.0,
+        "max_deger": 5.0,
         "birim": "NTU",
-        "kaynak_url": "TS 266 - İnsani Tüketim Amaçlı Sular (Arıtılmış Yüzeysel Su)",
+        "kaynak_url": "TS 266 - İnsani Tüketim Amaçlı Sular Standardı",
     },
     {
         "parametre_adi": "klorur",

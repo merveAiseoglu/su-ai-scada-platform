@@ -19,7 +19,7 @@ const PARAMETRELER = [
     ikon: "flask",
     birim: "",
     klavye: "numeric",
-    aciklama: "Normal aralık: 6.5 — 8.5",
+    aciklama: "Normal aralık: 6.5 — 9.5",
     renk: "#7C3AED",
   },
   {
@@ -37,7 +37,7 @@ const PARAMETRELER = [
     ikon: "water-opacity",
     birim: "NTU",
     klavye: "numeric",
-    aciklama: "Kabul edilebilir: < 1.0 NTU",
+    aciklama: "Kabul edilebilir: < 5.0 NTU",
     renk: "#0284C7",
   },
   {

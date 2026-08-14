@@ -38,7 +38,7 @@ async def hesapla_anomali_durumu(db: AsyncSession, olcum_verileri: dict):
                     "risk": "KRİTİK",
                 }
             )
-        elif ph > 8.5:
+        elif ph > 9.5:
             tespit_edilen_anomaliler.append(
                 {
                     "kural": "Kritik Yüksek pH",
@@ -62,13 +62,13 @@ async def hesapla_anomali_durumu(db: AsyncSession, olcum_verileri: dict):
             )
 
     if bulan is not None:
+        # TS 266 (İnsani Tüketim Amaçlı Sular Standardı):
+        # Şebeke dağıtım sisteminde tüketicilerce kabul edilebilir azami üst sınır 5.0 NTU'dur.
+        # Önceki 1.0 NTU değeri arıtma tesisi çıkışı referansı olup, şebeke uç noktalarında
+        # gereksiz kritik alarm üretmesini önlemek için TS 266 genel sınırına (5.0 NTU) çekildi.
         if bulan > 5.0:
             tespit_edilen_anomaliler.append(
                 {"kural": "Fiziksel Kirlilik", "mesaj": f"Kritik bulanıklık seviyesi ({bulan} NTU)!", "risk": "KRİTİK"}
-            )
-        elif bulan > 1.0:
-            tespit_edilen_anomaliler.append(
-                {"kural": "Yüksek Bulanıklık", "mesaj": f"Standart dışı bulanıklık ({bulan} NTU).", "risk": "ORTA"}
             )
 
     if ilet is not None:
@@ -123,16 +123,20 @@ async def hesapla_anomali_durumu(db: AsyncSession, olcum_verileri: dict):
 
     # None değerleri eval hatası vermemesi için filtrele
     clean_context = {k: v for k, v in context.items() if v is not None}
+    print(f"DEBUG clean_context: {clean_context}")
 
     for kural in kurallar:
+        print(f"DEBUG kural: {kural.kural_adi} | mantik: {kural.kural_mantigi}")
         try:
             # Kural mantığını güvenli bir şekilde çalıştır
-            if eval(kural.kural_mantigi, {"__builtins__": {}}, clean_context):
+            sonuc = eval(kural.kural_mantigi, {"__builtins__": {}}, clean_context)
+            print(f"DEBUG eval sonucu: {sonuc}")
+            if sonuc:
                 tespit_edilen_anomaliler.append(
                     {"kural": kural.kural_adi, "mesaj": kural.saha_uyarisi, "risk": kural.risk_seviyesi}
                 )
         except Exception as e:
-            print(f"Kural değerlendirilirken hata oluştu ({kural.kural_adi}): {e}")
+            print(f"DEBUG HATA ({kural.kural_adi}): {e}")
 
     # 3. Adım: En yüksek risk seviyesini belirle
     for anomali in tespit_edilen_anomaliler:

@@ -183,8 +183,9 @@ export default function MapScreen({ navigation }) {
               secili.son_sicaklik != null) ? (
               <View style={panel.sensorBox}>
                 <Text style={panel.sensorBaslik}>SON OLCUM DEGERLERI</Text>
-                <SatirRow label="pH"          value={secili.son_ph}           birim=""       uyari={secili.son_ph != null && (secili.son_ph < 6.5 || secili.son_ph > 8.5)} />
+                <SatirRow label="pH"          value={secili.son_ph}           birim=""       uyari={secili.son_ph != null && (secili.son_ph < 6.5 || secili.son_ph > 9.5)} />
                 <SatirRow label="Serbest Klor" value={secili.son_serbest_klor} birim="mg/L"  uyari={secili.son_serbest_klor != null && secili.son_serbest_klor < 0.2} />
+                {/* Bu değer kritik bulanıklık eşiğinden (5.0 NTU) farklıdır; burada harita erken uyarı göstergesi amacıyla bilinçli olarak daha düşük tutulmuştur. */}
                 <SatirRow label="Bulaniklik"   value={secili.son_bulaniklik}   birim="NTU"   uyari={secili.son_bulaniklik != null && secili.son_bulaniklik > 1.0} />
                 <SatirRow label="Iletkenlik"   value={secili.son_iletkenlik}   birim="uS/cm" uyari={secili.son_iletkenlik != null && secili.son_iletkenlik > 500} />
                 <SatirRow label="Sicaklik"     value={secili.son_sicaklik}     birim="C"     uyari={false} />
@@ -193,7 +194,7 @@ export default function MapScreen({ navigation }) {
               <Text style={panel.olcumYok}>Bu istasyon icin henuz olcum yapilmamis.</Text>
             )}
 
-            {/* Alt Satır: Tarih ve Buton */}
+            {/* Alt Satır: Tarih */}
             <View style={panel.altSatir}>
               {secili.son_olcum_tarihi ? (
                 <Text style={panel.tarih}>
@@ -202,25 +203,24 @@ export default function MapScreen({ navigation }) {
               ) : (
                 <View style={{ flex: 1 }} />
               )}
-              
-              {/* Analiz Butonu (Sadece Yönetici) veya Ölçüm Gir Butonu (Personel) */}
-              {userInfo?.rol === 'yonetici' ? (
-                <TouchableOpacity
-                  style={panel.analizBtn}
-                  onPress={() => navigation.navigate('StationHistoryScreen', { station_id: secili.id, station_ad: secili.ad })}
-                >
-                  <MaterialCommunityIcons name="chart-line" size={14} color="#FFF" style={{ marginRight: 4 }} />
-                  <Text style={panel.analizBtnText}>Analizi Gör</Text>
-                </TouchableOpacity>
-              ) : (
-                <TouchableOpacity
-                  style={[panel.analizBtn, { backgroundColor: '#28A745' }]}
-                  onPress={() => navigation.navigate("MeasurementForm", { istasyon: secili })}
-                >
-                  <MaterialCommunityIcons name="plus" size={14} color="#FFF" style={{ marginRight: 4 }} />
-                  <Text style={panel.analizBtnText}>Ölçüm Gir</Text>
-                </TouchableOpacity>
-              )}
+            </View>
+            
+            {/* Analiz Butonu (Sadece Yönetici) veya Ölçüm Gir Butonu (Personel) */}
+            <View style={{ flexDirection: 'row', gap: 8, width: '100%', marginTop: 12 }}>
+              <TouchableOpacity
+                style={[panel.analizBtn, { flex: 1 }]}
+                onPress={() => navigation.navigate('StationHistoryScreen', { station_id: secili.id, station_ad: secili.ad })}
+              >
+                <MaterialCommunityIcons name="chart-line" size={14} color="#FFF" style={{ marginRight: 4 }} />
+                <Text style={panel.analizBtnText}>Analizi Gör</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[panel.analizBtn, { backgroundColor: '#28A745', flex: 1 }]}
+                onPress={() => navigation.navigate("MeasurementForm", { istasyon: secili })}
+              >
+                <MaterialCommunityIcons name="plus" size={14} color="#FFF" style={{ marginRight: 4 }} />
+                <Text style={panel.analizBtnText}>Ölçüm Gir</Text>
+              </TouchableOpacity>
             </View>
           </View>
         </View>
@@ -304,8 +304,8 @@ const panel = StyleSheet.create({
   altSatir:     { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: 4 },
   tarih:        { fontSize: 11, color: '#AAA' },
   analizBtn: {
-    backgroundColor: '#0056b3', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6,
-    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: '#0056b3', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 7,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
   },
-  analizBtnText: { color: '#FFF', fontSize: 11, fontWeight: '700' },
+  analizBtnText: { color: '#FFF', fontSize: 12, fontWeight: '700' },
 });
