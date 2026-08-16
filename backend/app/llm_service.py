@@ -150,7 +150,7 @@ async def olustur_teknik_aksiyon_onerisi(
 
     vaka_metni = ""
     if benzer_vakalar:
-        vaka_metni = "=== GEÇMİ KURUMSAL HAFIZA (Benzer Vakalar) ===\n" + "\n".join([f"- {v}" for v in benzer_vakalar])
+        vaka_metni = "=== GEÇMİŞ KURUMSAL HAFIZA (Benzer Vakalar) ===\n" + "\n".join([f"- {v}" for v in benzer_vakalar])
 
     trend_metni = ""
     if trend_data:
@@ -177,7 +177,7 @@ Sıcaklık: {olcum_verisi.get('sicaklik', 'Ölçülmedi')} °C
 {trend_metni}
 === TALİMAT ===
 Yukarıdaki kural motoru çıktısına ve Geçmiş Kurumsal Hafıza'ya dayanarak saha personeli için somut, numaralı teknik aksiyon adımları oluştur.
-UNUTMA: Yeni eşik/yasal referans üretme, sadece verilen veriyi yorumla ve geçmiş hafızaya atıf yap."""
+UNUTMA: Yeni eşik/yasal referans üretme. Geçmiş vakaları mekanik başlıklar yerine doğal bir saha tecrübesi olarak önerilen aksiyon adımlarına entegre et (Örn: 'Daha önce X bölgesinde benzer durumda Y yapılmıştı, burada da Z kontrol edilmelidir')."""
 
     try:
         # LLM'e (Hybrid) İstek At

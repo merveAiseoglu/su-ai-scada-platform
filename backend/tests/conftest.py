@@ -17,7 +17,11 @@ from app.models import Kullanici, Istasyon, Organization
 import uuid
 
 # Use postgres test database
-TEST_DATABASE_URL = "postgresql+asyncpg://postgres:merve-dev-password@postgres:5432/su_ai_test"
+default_db_host = "localhost" if os.name == "nt" else "postgres"
+TEST_DATABASE_URL = os.getenv(
+    "TEST_DATABASE_URL",
+    f"postgresql+asyncpg://postgres:merve-dev-password@{default_db_host}:5432/su_ai_test"
+)
 
 engine = create_async_engine(
     TEST_DATABASE_URL,
@@ -26,13 +30,24 @@ engine = create_async_engine(
 
 @pytest_asyncio.fixture(scope="session", autouse=True)
 async def setup_test_db():
-    # Setup tables once per session
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
-        await conn.run_sync(Base.metadata.create_all)
+    # Setup tables once per session if database is accessible
+    db_initialized = False
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.drop_all)
+            await conn.run_sync(Base.metadata.create_all)
+        db_initialized = True
+    except Exception as e:
+        print(f"\n[conftest] Warning: Test DB connection could not be established ({e}). Non-DB unit tests will proceed.")
+
     yield
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
+
+    if db_initialized:
+        try:
+            async with engine.begin() as conn:
+                await conn.run_sync(Base.metadata.drop_all)
+        except Exception:
+            pass
 
 @pytest_asyncio.fixture
 async def test_db():

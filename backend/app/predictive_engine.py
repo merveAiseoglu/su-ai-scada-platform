@@ -14,12 +14,12 @@ class TrendResult(TypedDict):
 def analyze_trend(station_id: int, parameter: str, recent_values: list[float]) -> TrendResult:
     """
     Analyzes the trend of a given parameter based on recent measurements.
-    Uses Simple Exponential Smoothing to predict the next value and basic linear regression for the slope.
+    Uses Holt's Linear Exponential Smoothing to predict the next value with trend and basic linear regression for the slope.
     """
     try:
         import numpy as np
         import pandas as pd
-        from statsmodels.tsa.holtwinters import SimpleExpSmoothing
+        from statsmodels.tsa.holtwinters import Holt
     except ImportError:
         logger.warning("statsmodels/pandas/numpy not installed. Returning safe defaults.")
         return {
@@ -41,9 +41,9 @@ def analyze_trend(station_id: int, parameter: str, recent_values: list[float]) -
         if len(data) < 3:
             return default_result
 
-        # Predict next value using Simple Exponential Smoothing
+        # Predict next value using Holt's Linear Trend method
         series = pd.Series(data)
-        model = SimpleExpSmoothing(series, initialization_method="estimated")
+        model = Holt(series, initialization_method="estimated")
         fit_model = model.fit()
         forecast = fit_model.forecast(1)
         projected_value = float(forecast.iloc[0])
