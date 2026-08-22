@@ -53,6 +53,31 @@
       "targets": [
         {"expr": "sum(rate(su_ai_judge_score_distribution_sum[5m])) / sum(rate(su_ai_judge_score_distribution_count[5m]))", "legendFormat": "Avg Score (0-100)"}
       ]
+    },
+    {
+      "title": "LLM Latency Percentiles (p50 & p95)",
+      "type": "timeseries",
+      "gridPos": {"x": 0, "y": 24, "w": 12, "h": 8},
+      "targets": [
+        {"expr": "histogram_quantile(0.95, sum(rate(su_ai_llm_latency_seconds_bucket[5m])) by (le, provider))", "legendFormat": "{{provider}} - p95 Latency (s)"},
+        {"expr": "histogram_quantile(0.50, sum(rate(su_ai_llm_latency_seconds_bucket[5m])) by (le, provider))", "legendFormat": "{{provider}} - p50 (Median) (s)"}
+      ]
+    },
+    {
+      "title": "MQTT Ingestion Rate & Status",
+      "type": "timeseries",
+      "gridPos": {"x": 12, "y": 24, "w": 12, "h": 8},
+      "targets": [
+        {"expr": "sum(rate(su_ai_mqtt_message_counter_total[5m])) by (status)", "legendFormat": "MQTT Status: {{status}}"}
+      ]
+    },
+    {
+      "title": "Predictive Trend Risk Score (Avg by Parameter)",
+      "type": "timeseries",
+      "gridPos": {"x": 0, "y": 32, "w": 24, "h": 8},
+      "targets": [
+        {"expr": "sum(rate(su_ai_trend_risk_score_sum[5m])) by (parameter) / sum(rate(su_ai_trend_risk_score_count[5m])) by (parameter)", "legendFormat": "Avg Trend Score: {{parameter}}"}
+      ]
     }
   ]
 }
