@@ -11,6 +11,47 @@ class TrendResult(TypedDict):
     projection_message: str
 
 
+# Fiziksel sınırlar: (min, max) — None = o yönde sınır yok.
+# sicaklik fiziksel olarak negatif olabilir (donma altı) → her iki yönde de sınır yok.
+_PARAM_BOUNDS: dict[str, tuple[float | None, float | None]] = {
+    "bulaniklik":   (0.0,  None),   # NTU: negatif olamaz
+    "serbest_klor": (0.0,  None),   # mg/L: negatif olamaz
+    "iletkenlik":   (0.0,  None),   # µS/cm: negatif olamaz
+    "sicaklik":     (None, None),   # °C: donma altı fiziksel olarak geçerli
+    "ph":           (0.0,  14.0),   # pH ölçeği: 0–14
+}
+
+
+def _apply_physical_bounds(
+    parameter: str,
+    value: float,
+    station_id: int,
+) -> tuple[float, bool]:
+    """
+    Clips *value* to the physical bounds defined for *parameter*.
+    Returns (clipped_value, was_clipped).
+    """
+    bounds = _PARAM_BOUNDS.get(parameter.lower())
+    if bounds is None:
+        return value, False
+
+    lo, hi = bounds
+    original = value
+    if lo is not None and value < lo:
+        value = lo
+    if hi is not None and value > hi:
+        value = hi
+
+    clipped = value != original
+    if clipped:
+        logger.debug(
+            "analyze_trend: projected_value clipped %.4f → %.4f "
+            "(param=%s, station=%d)",
+            original, value, parameter, station_id,
+        )
+    return value, clipped
+
+
 def analyze_trend(station_id: int, parameter: str, recent_values: list[float]) -> TrendResult:
     """
     Analyzes the trend of a given parameter based on recent measurements.
@@ -66,6 +107,13 @@ def analyze_trend(station_id: int, parameter: str, recent_values: list[float]) -
             risk = min(int(abs(slope) * 300), 100)
             trend_risk_score = risk
 
+        # Fiziksel sınır clipping — modelin fiziksel olarak imkânsız değer
+        # üretmesini engelle. Risk skoru ve trend yönü clip'ten ÖNCE hesaplandığı
+        # için bunlar etkilenmez.
+        projected_value, clipped = _apply_physical_bounds(
+            parameter, projected_value, station_id
+        )
+
         # Projection message in Turkish
         param_names = {
             "ph": "pH",
@@ -79,7 +127,10 @@ def analyze_trend(station_id: int, parameter: str, recent_values: list[float]) -
             if trend_direction == "rising":
                 msg = f"{tr_param} değeri keskin bir yükseliş trendinde, bir sonraki ölçümde {projected_value:.2f} seviyesine ulaşması bekleniyor."
             else:
-                msg = f"{tr_param} değeri keskin bir düşüş trendinde, bir sonraki ölçümde {projected_value:.2f} seviyesine düşmesi bekleniyor."
+                if clipped:
+                    msg = f"{tr_param} değeri keskin bir düşüş trendinde, bir sonraki ölçümde {projected_value:.2f} seviyesine (fiziksel alt sınıra) yaklaşması bekleniyor."
+                else:
+                    msg = f"{tr_param} değeri keskin bir düşüş trendinde, bir sonraki ölçümde {projected_value:.2f} seviyesine düşmesi bekleniyor."
         else:
             msg = f"{tr_param} değeri genel olarak stabil veya yavaş bir değişim gösteriyor. Beklenen değer: {projected_value:.2f}."
 

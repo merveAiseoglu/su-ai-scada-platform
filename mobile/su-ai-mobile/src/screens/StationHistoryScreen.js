@@ -138,6 +138,21 @@ export default function StationHistoryScreen({ route, navigation }) {
         <View style={[styles.trendCard, { borderLeftColor: forecastColor, borderLeftWidth: 4 }]}>
           <Text style={styles.trendTitle}>Yapay Zeka Trend Analizi</Text>
           <Text style={styles.trendDesc}>{trendMessage}</Text>
+          
+          {/* Önceden backend'de hesaplanıp response'a dahil edilmeyen projected_value ve projection_message artık kullanıcıya sunuluyor */}
+          {trendData && trendData.projection_message ? (
+            <Text style={styles.projectionMessage}>{trendData.projection_message}</Text>
+          ) : null}
+
+          {trendData && trendData.projected_value != null && (
+            <View style={styles.projectedValueRow}>
+              <MaterialCommunityIcons name="crystal-ball" size={16} color={forecastColor} style={{ marginRight: 6 }} />
+              <Text style={styles.projectedValueText}>
+                Beklenen bir sonraki değer: <Text style={{ fontWeight: '700', color: '#1A1A1A' }}>{trendData.projected_value.toFixed(2)}</Text>
+              </Text>
+            </View>
+          )}
+
           {trendData && trendData.trend_risk_score > 0 && (
             <Text style={styles.trendScore}>
               Risk Skoru: <Text style={{ color: forecastColor, fontWeight: 'bold' }}>{trendData.trend_risk_score}</Text>
@@ -180,5 +195,16 @@ const styles = StyleSheet.create({
   },
   trendTitle: { fontSize: 15, fontWeight: 'bold', color: '#333', marginBottom: 8 },
   trendDesc: { fontSize: 14, color: '#555', lineHeight: 20 },
+  projectionMessage: { fontSize: 13, color: '#444', fontStyle: 'italic', marginTop: 6, lineHeight: 18 },
+  projectedValueRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+    backgroundColor: 'rgba(0,0,0,0.03)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  projectedValueText: { fontSize: 13, color: '#444' },
   trendScore: { fontSize: 13, color: '#777', marginTop: 8 }
 });
