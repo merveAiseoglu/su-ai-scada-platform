@@ -92,11 +92,12 @@ def _get_narrator_prompt() -> str:
 
 async def olustur_teknik_aksiyon_onerisi(
     olcum_id: int, anomali_raporu: dict, db, trend_data: dict = None
-) -> tuple[str, str, str]:
+) -> tuple[str, str, str, list[str]]:
     """
     LLM (Hybrid: OpenAI veya Ollama) çağırarak kural motoru çıktılarını
     teknik aksiyon önerisine dönüştürür.
     trend_data varsa proaktif tavsiyeler üretmesi sağlanır.
+    Dönüş: tuple[oneri, durum, provider, benzer_vakalar]
     """
     from sqlalchemy.future import select
 
@@ -106,7 +107,7 @@ async def olustur_teknik_aksiyon_onerisi(
     result = await db.execute(select(models.SuOlcumu).filter(models.SuOlcumu.id == olcum_id))
     olcum = result.scalars().first()
     if not olcum:
-        return "Ölçüm bulunamadı", "HATA", "none"
+        return "Ölçüm bulunamadı", "HATA", "none", []
 
     olcum_verisi = {
         "ph": olcum.ph,
@@ -125,7 +126,7 @@ async def olustur_teknik_aksiyon_onerisi(
     if risk == "NORMAL":
         oneri = "**Mevcut Durum:**\n- Şebeke suyu güvenli, tüm değerler standartlar dahilindedir. Herhangi bir anomali tespit edilmemiştir.\n\n**Önerilen Aksiyon:**\n- Rutin kontrol takvimine göre bir sonraki ölçümü planlayın.\n- Ekstra bir aksiyon gerekmemektedir."
         logger.info("LLM atlandı: Risk NORMAL. Varsayılan metin döndürüldü.")
-        return oneri, "BASARILI", "static"
+        return oneri, "BASARILI", "static", []
 
     aciliyet_map = {
         "DÜŞÜK": "yakın takip gerektiren durum",
@@ -188,13 +189,13 @@ UNUTMA: Yeni eşik/yasal referans üretme. Geçmiş vakaları mekanik başlıkla
 
         oneri, provider = await _get_llm_response(messages)
         logger.info(f"LLM aksiyon önerisi başarıyla oluşturuldu. Risk: {risk}")
-        return oneri, "BASARILI", provider
+        return oneri, "BASARILI", provider, benzer_vakalar
 
     except Exception as e:
         logger.error(f"LLM servisi hatası: {e}")
         # Fallback: LLM olmadan da sistem çalışmaya devam eder
         fallback = _olustur_fallback_oneri(kural_motoru_sonucu)
-        return fallback, "DEVRE_DISI", "fallback"
+        return fallback, "DEVRE_DISI", "fallback", []
 
 
 def _olustur_fallback_oneri(kural_motoru_sonucu: dict) -> str:
@@ -238,8 +239,8 @@ async def arka_planda_analiz_et(olcum_id: int, db_factory) -> None:
     1. Yeni bir DB oturumu aç (request oturumunu paylaşmaz — thread-safe)
     2. Ölçümü DB'den çek
     3. Kural motorunu çalıştır
-    4. LLM narratörüne gönder → aksiyon_onerisi
-    5. LLM-as-a-Judge denetimini çalıştır → AnalizMetrikleri kaydı oluştur
+    4. LLM narratörüne gönder → aksiyon_onerisi ve benzer_vakalar
+    5. LLM-as-a-Judge denetimini çalıştır (RAG benzer_vakalar ile) → AnalizMetrikleri kaydı oluştur
     6. analiz_durumu = "TAMAMLANDI"
     7. Hata durumunda analiz_durumu = "HATA"
     """
@@ -265,6 +266,7 @@ async def arka_planda_analiz_et(olcum_id: int, db_factory) -> None:
 
                 # 2. Kural motorunu çalıştır
                 analiz_girdisi = {
+                    "istasyon_id": olcum.istasyon_id,
                     "ph": olcum.ph,
                     "serbest_klor": olcum.serbest_klor,
                     "bulaniklik": olcum.bulaniklik,
@@ -285,16 +287,18 @@ async def arka_planda_analiz_et(olcum_id: int, db_factory) -> None:
                         "message": olcum.projection_message,
                     }
 
-                # 3. LLM narratör → aksiyon önerisi
-                teknik_oneri, llm_durumu, provider = await olustur_teknik_aksiyon_onerisi(
+                # 3. LLM narratör → aksiyon önerisi ve RAG geçmiş vaka bağlamı
+                teknik_oneri, llm_durumu, provider, benzer_vakalar = await olustur_teknik_aksiyon_onerisi(
                     olcum_id=olcum_id, anomali_raporu=kural_motoru_sonucu, db=db, trend_data=trend_data
                 )
 
-                # 4. LLM-as-a-Judge → Analiz durumunu TAMAMLANDI yapmadan önce bekle (race condition çözümü)
+                # 4. LLM-as-a-Judge → RAG geçmiş vaka referansları ile birlikte denetime gönder
+                # DÜZELTME: Narratöre verilen benzer_vakalar bağlamı judge'a da aktarılıyor;
+                # böylece geçmiş vaka atıfları halüsinasyon sayılmayıp 85 puan tavanı sorunu önleniyor.
                 from app.judge_service import degerlendir_llm_ciktisi
 
                 await degerlendir_llm_ciktisi(
-                    olcum_id, kural_motoru_sonucu, teknik_oneri, db_factory, provider, olcum.istasyon_id
+                    olcum_id, kural_motoru_sonucu, teknik_oneri, db_factory, provider, olcum.istasyon_id, benzer_vakalar
                 )
 
                 # 5. Sonuçları DB'ye yaz ve durumu TAMAMLANDI olarak işaretle

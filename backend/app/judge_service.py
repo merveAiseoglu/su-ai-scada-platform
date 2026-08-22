@@ -18,11 +18,20 @@ def _get_judge_prompt() -> str:
             return f.read()
     except FileNotFoundError:
         logger.warning(f"Prompt dosyası bulunamadı: {prompt_path}. Varsayılan prompt kullanılıyor.")
-        return 'Sen Sistem Çıktısı Kalite Kontrol Denetçisisin.\nGörev: Verilen "Anomali Raporu" ile üretilen "LLM Önerisi"ni karşılaştır. Öneri, regülasyon kurallarına uygun mu? Halüsinasyon (uydurma referans veya yasal olmayan eşik) var mı? Mantıklı ve eksiksiz mi?\nÇıktı Formatı:\nSadece saf JSON dön:\n{"uygunluk_puani": 100, "degerlendirme_notu": "..."}'
+        return 'Sen Sistem Çıktısı Kalite Kontrol Denetçisisin.\nGörev: Verilen "Anomali Raporu" ve "Doğrulanmış Kurumsal Hafıza (RAG)" bağlamı ile üretilen "LLM Önerisi"ni karşılaştır.\nÖNEMLİ KURAL: "Doğrulanmış Kurumsal Hafıza" bölümündeki geçmiş vaka ve ilçe/bölge kayıtları sisteme ait meşru referanslardır. Narratörün bu geçmiş vakalara (örneğin ilçe adı, geçmiş tecrübe, benzer arıza çözümü) yaptığı atıflar KESİNLİKLE halüsinasyon DEĞİLDİR ve puan kırılmamalıdır.\nÇıktı Formatı:\nSadece saf JSON dön:\n{"uygunluk_puani": 100, "degerlendirme_notu": "..."}'
 
 
+# DÜZELTME: RAG bağlamından (su_kriz_hafizasi) habersizlik nedeniyle narratörün meşru kurumsal
+# geçmiş vaka atıflarının (örn. ilçe/bölge referansları) halüsinasyon sayılarak puan kırılmasını (85 puan tavanı)
+# önlemek amacıyla benzer_vakalar parametresi eklendi ve yargıç promptuna dahil edildi.
 async def degerlendir_llm_ciktisi(
-    olcum_id: int, anomali_raporu: dict, llm_onerisi: str, db_factory, provider: str, istasyon_id: int
+    olcum_id: int,
+    anomali_raporu: dict,
+    llm_onerisi: str,
+    db_factory,
+    provider: str,
+    istasyon_id: int,
+    benzer_vakalar: list[str] | None = None,
 ):
     """
     LLM'in ürettiği çıktıyı arka planda denetler (LLM-as-a-Judge) ve veritabanına yazar.
@@ -34,6 +43,15 @@ async def degerlendir_llm_ciktisi(
         or "  - Anomali tespit edilmedi (NORMAL durum)."
     )
 
+    vaka_baglami = ""
+    if benzer_vakalar:
+        vaka_baglami = (
+            "\n=== DOĞRULANMIŞ KURUMSAL HAFIZA (RAG Vaka Kayıtları) ===\n"
+            "Aşağıdaki geçmiş vakalar sisteme RAG hafızasından sağlanmıştır. LLM'in bu vakalara/ilçelere yaptığı atıflar meşrudur, halüsinasyon sayılmamalıdır:\n"
+            + "\n".join([f"  - {v}" for v in benzer_vakalar])
+            + "\n"
+        )
+
     kullanici_promptu = f"""Şu bilgileri değerlendirmeni istiyorum:
 
 === ANOMALİ RAPORU (Gerçek, değişmez referans) ===
@@ -41,11 +59,11 @@ Genel Durum: {anomali_raporu.get('durum', 'BILINMEYEN')}
 En Yüksek Risk: {anomali_raporu.get('en_yuksek_risk_seviyesi', 'NORMAL')}
 Tespit Edilen Anomaliler:
 {anomali_ozeti}
-
+{vaka_baglami}
 === LLM ÖNERİSİ (Denetlenecek metin) ===
 {llm_onerisi}
 
-Yukarıdaki öneriyi anomali raporuyla kıyasla, halüsinasyonları veya eksikleri tespit et ve uygunluk puanını JSON formatında dön."""
+Yukarıdaki öneriyi anomali raporu ve doğrulanmış kurumsal hafıza ile kıyasla. Kurumsal hafızadaki geçmiş vakalara yapılan atıfları halüsinasyon sayma. Gerçek halüsinasyonları veya eksikleri tespit et ve uygunluk puanını JSON formatında dön."""
 
     try:
         messages = [
