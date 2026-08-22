@@ -3,7 +3,7 @@ import asyncio
 from sqlalchemy.future import select
 
 from app.database import SessionLocal
-from app.models import EsikDegeri
+from app.models import EsikDegeri, Organization
 
 SEED_DATA = [
     {
@@ -46,13 +46,25 @@ SEED_DATA = [
 
 async def seed_esik_degerleri():
     async with SessionLocal() as db:
+        org_res = await db.execute(select(Organization).limit(1))
+        default_org = org_res.scalars().first()
+        if not default_org:
+            default_org = Organization(name="ŞUSKİ Genel Müdürlüğü")
+            db.add(default_org)
+            await db.flush()
+
         for data in SEED_DATA:
-            result = await db.execute(select(EsikDegeri).filter(EsikDegeri.parametre_adi == data["parametre_adi"]))
+            result = await db.execute(
+                select(EsikDegeri).filter(
+                    EsikDegeri.organization_id == default_org.id,
+                    EsikDegeri.parametre_adi == data["parametre_adi"],
+                )
+            )
             existing = result.scalars().first()
             if existing:
                 print(f"[ATLANDI] {data['parametre_adi']} zaten mevcut.")
             else:
-                yeni_esik = EsikDegeri(**data)
+                yeni_esik = EsikDegeri(**data, organization_id=default_org.id)
                 db.add(yeni_esik)
                 print(f"[EKLENDİ] {data['parametre_adi']} eşik değeri eklendi.")
 

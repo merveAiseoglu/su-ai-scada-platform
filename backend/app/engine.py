@@ -1,20 +1,42 @@
 # app/engine.py
+import uuid
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
 from app import models
 
 
-async def hesapla_anomali_durumu(db: AsyncSession, olcum_verileri: dict):
+async def hesapla_anomali_durumu(
+    db: AsyncSession, olcum_verileri: dict, organization_id: uuid.UUID | None = None
+):
     """
-    Saha ölçüm verilerini alır, veritabanındaki dinamik anomali kuralları
-    ve eşik değerleriyle karşılaştırarak en yüksek risk seviyesini ve tespitleri döndürür.
+    Saha ölçüm verilerini alır, ilgili organizasyonun veritabanındaki dinamik
+    anomali kuralları ve eşik değerleriyle karşılaştırarak en yüksek risk seviyesini ve tespitleri döndürür.
     """
-    # Veritabanındaki tüm kuralları ve eşik değerlerini çek
-    kurallar_result = await db.execute(select(models.AnomaliKurali))
+    # 1. Organizasyon ID'yi belirle (argümandan, olcum_verileri["organization_id"]'den veya istasyon_id'den)
+    if organization_id is None:
+        org_val = olcum_verileri.get("organization_id")
+        if org_val:
+            organization_id = org_val
+        elif olcum_verileri.get("istasyon_id"):
+            st_res = await db.execute(
+                select(models.Istasyon.organization_id).filter(
+                    models.Istasyon.id == olcum_verileri["istasyon_id"]
+                )
+            )
+            organization_id = st_res.scalar_one_or_none()
+
+    # 2. İlgili organizasyona ait kuralları ve eşik değerlerini çek
+    kurallar_stmt = select(models.AnomaliKurali)
+    esikler_stmt = select(models.EsikDegeri)
+    if organization_id is not None:
+        kurallar_stmt = kurallar_stmt.filter(models.AnomaliKurali.organization_id == organization_id)
+        esikler_stmt = esikler_stmt.filter(models.EsikDegeri.organization_id == organization_id)
+
+    kurallar_result = await db.execute(kurallar_stmt)
     kurallar = kurallar_result.scalars().all()
 
-    esikler_result = await db.execute(select(models.EsikDegeri))
+    esikler_result = await db.execute(esikler_stmt)
     esikler = esikler_result.scalars().all()
 
     tespit_edilen_anomaliler = []
@@ -97,9 +119,16 @@ async def hesapla_anomali_durumu(db: AsyncSession, olcum_verileri: dict):
     for esik in esikler:
         deger = olcum_verileri.get(esik.parametre_adi)
         if deger is not None:
+            # Dinamik katmandaki pH alt/üst sınır asimetrisi giderildi; pH için hem alt hem üst sınır ihlali KRİTİK üretir.
             if esik.min_deger is not None and deger < esik.min_deger:
                 mesaj = f"{esik.parametre_adi.upper()} değeri ({deger} {esik.birim}) alt sınırın ({esik.min_deger}) altında!"
-                tespit_edilen_anomaliler.append({"kural": "Alt Sınır İhlali", "mesaj": mesaj, "risk": "ORTA"})
+                tespit_edilen_anomaliler.append(
+                    {
+                        "kural": "Alt Sınır İhlali",
+                        "mesaj": mesaj,
+                        "risk": "KRİTİK" if esik.parametre_adi == "ph" else "ORTA",
+                    }
+                )
 
             if esik.max_deger is not None and deger > esik.max_deger:
                 mesaj = f"{esik.parametre_adi.upper()} değeri ({deger} {esik.birim}) üst sınırın ({esik.max_deger}) üzerinde!"
