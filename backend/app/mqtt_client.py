@@ -45,6 +45,7 @@ async def process_mqtt_payload(payload: MqttPayload):
 
         # 3. Rule Engine
         analiz_girdisi = {
+            "istasyon_id": db_olcum.istasyon_id,
             "ph": db_olcum.ph,
             "serbest_klor": db_olcum.serbest_klor,
             "bulaniklik": db_olcum.bulaniklik,

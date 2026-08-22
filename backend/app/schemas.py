@@ -222,3 +222,90 @@ class PushTokenUpdate(BaseModel):
 class NotificationPreferencesUpdate(BaseModel):
     notify_push: Optional[bool] = None
     notify_email: Optional[bool] = None
+
+
+# ---------------------------------------------------------------------------
+# Trend / Predictive Analiz Şemaları
+# ---------------------------------------------------------------------------
+
+
+class TrendMeasurementResponse(BaseModel):
+    id: int
+    date: datetime
+    trend_risk_score: Optional[int] = None
+    trend_direction: Optional[str] = None
+    # Önceden hesaplanıp response'a dahil edilmeyen projected_value ve projection_message eklendi
+    projected_value: Optional[float] = None
+    projection_message: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class TrendAnalysisResponse(BaseModel):
+    istasyon_id: int
+    measurements: list[TrendMeasurementResponse]
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+# ---------------------------------------------------------------------------
+# Admin - Eşik Değerleri Şemaları
+# ---------------------------------------------------------------------------
+
+
+class EsikDegeriBase(BaseModel):
+    parametre_adi: str
+    min_deger: Optional[float] = None
+    max_deger: Optional[float] = None
+    birim: str
+    kaynak_url: Optional[str] = None
+
+
+class EsikDegeriCreate(EsikDegeriBase):
+    pass
+
+
+class EsikDegeriUpdate(BaseModel):
+    min_deger: Optional[float] = None
+    max_deger: Optional[float] = None
+    birim: Optional[str] = None
+    kaynak_url: Optional[str] = None
+
+
+class EsikDegeriResponse(EsikDegeriBase):
+    id: int
+    organization_id: uuid.UUID
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+# ---------------------------------------------------------------------------
+# Admin - Anomali Kuralları Şemaları
+# ---------------------------------------------------------------------------
+
+
+class AnomaliKuraliBase(BaseModel):
+    kural_adi: str
+    kural_mantigi: str
+    risk_seviyesi: str  # "DÜŞÜK", "ORTA", "KRİTİK"
+    saha_uyarisi: str
+
+
+class AnomaliKuraliCreate(AnomaliKuraliBase):
+    pass
+
+
+class AnomaliKuraliUpdate(BaseModel):
+    kural_adi: Optional[str] = None
+    kural_mantigi: Optional[str] = None
+    risk_seviyesi: Optional[str] = None
+    saha_uyarisi: Optional[str] = None
+
+
+class AnomaliKuraliResponse(AnomaliKuraliBase):
+    id: int
+    organization_id: uuid.UUID
+
+    model_config = ConfigDict(from_attributes=True)
+
+

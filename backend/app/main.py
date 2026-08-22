@@ -37,6 +37,14 @@ from app.metrics import anomaly_counter, trend_risk_histogram
 from app.predictive_engine import analyze_trend
 from app.report_service import generate_monthly_pdf_report
 from app.tasks import fire_and_forget
+from app.validators import kural_mantigi_gecerli_mi
+
+SEVERITY_MAP = {
+    "NORMAL": "normal",
+    "DÜŞÜK": "dusuk",
+    "ORTA": "orta",
+    "KRİTİK": "kritik",
+}
 
 
 # ---------------------------------------------------------------------------
@@ -56,6 +64,22 @@ async def lifespan(app: FastAPI):
     async with engine.begin() as conn:
         await conn.run_sync(models.Base.metadata.create_all)
 
+        # Varsayılan Organizasyon (SUSKİ) oluştur (Eğer yoksa)
+        import uuid
+        org_result = await conn.execute(select(models.Organization).filter(models.Organization.name == "SUSKİ Genel Müdürlüğü"))
+        org = org_result.fetchone()
+        if not org:
+            default_org_id = uuid.uuid4()
+            await conn.execute(
+                models.Organization.__table__.insert().values(
+                    id=default_org_id,
+                    name="SUSKİ Genel Müdürlüğü"
+                )
+            )
+            print("[OK] Varsayilan organizasyon (SUSKİ) eklendi.")
+        else:
+            default_org_id = org[0]
+
         # Admin kullanicisi olustur (Eger yoksa)
         result = await conn.execute(select(models.Kullanici).filter(models.Kullanici.email == "admin@suski.gov.tr"))
         admin = result.fetchone()
@@ -64,7 +88,11 @@ async def lifespan(app: FastAPI):
 
             await conn.execute(
                 models.Kullanici.__table__.insert().values(
-                    email="admin@suski.gov.tr", sifre_hash=get_password_hash("admin123"), rol="yonetici", aktif_mi=True
+                    email="admin@suski.gov.tr",
+                    sifre_hash=get_password_hash("admin123"),
+                    rol="yonetici",
+                    aktif_mi=True,
+                    organization_id=default_org_id,
                 )
             )
             print("[OK] Varsayilan yonetici (admin@suski.gov.tr) eklendi.")
@@ -79,13 +107,25 @@ async def lifespan(app: FastAPI):
 
             await conn.execute(
                 models.Kullanici.__table__.insert().values(
-                    email="personel1@suski.gov.tr",
-                    sifre_hash=get_password_hash("pers123"),
-                    rol="saha_personeli",
-                    aktif_mi=True,
+                    [
+                        {
+                            "email": "personel1@suski.gov.tr",
+                            "sifre_hash": get_password_hash("pers123"),
+                            "rol": "saha_personeli",
+                            "aktif_mi": True,
+                            "organization_id": default_org_id,
+                        },
+                        {
+                            "email": "personel@suski.gov.tr",
+                            "sifre_hash": get_password_hash("pers123"),
+                            "rol": "saha_personeli",
+                            "aktif_mi": True,
+                            "organization_id": default_org_id,
+                        },
+                    ]
                 )
             )
-            print("[OK] Varsayilan personel (personel1@suski.gov.tr) eklendi.")
+            print("[OK] Varsayilan personel hesaplari eklendi.")
 
         # Ornek Istasyonlar
         ist_result = await conn.execute(select(models.Istasyon).filter(models.Istasyon.ad == "Merkez Su Deposu"))
@@ -94,6 +134,7 @@ async def lifespan(app: FastAPI):
                 models.Istasyon.__table__.insert().values(
                     [
                         {
+                            "organization_id": default_org_id,
                             "ad": "Merkez Su Deposu",
                             "konum": "Şanlıurfa Merkez",
                             "tip": "Depo",
@@ -102,6 +143,7 @@ async def lifespan(app: FastAPI):
                             "aktif_mi": True,
                         },
                         {
+                            "organization_id": default_org_id,
                             "ad": "Karaköprü Kuyusu",
                             "konum": "Karaköprü",
                             "tip": "Kuyu",
@@ -110,6 +152,7 @@ async def lifespan(app: FastAPI):
                             "aktif_mi": True,
                         },
                         {
+                            "organization_id": default_org_id,
                             "ad": "Haliliye Şebeke",
                             "konum": "Haliliye",
                             "tip": "Şebeke",
@@ -277,8 +320,9 @@ async def add_security_headers(request: Request, call_next):
 
 
 def _olcum_to_analiz_girdisi(olcum: models.SuOlcumu) -> dict:
-    """SuOlcumu DB nesnesini kural motoru için dict'e çevirir."""
+    """SuOlcumu DB nesnesini kural motoru için dict'e çevirir (istasyon_id dahil)."""
     return {
+        "istasyon_id": olcum.istasyon_id,
         "ph": olcum.ph,
         "serbest_klor": olcum.serbest_klor,
         "bulaniklik": olcum.bulaniklik,
@@ -699,7 +743,7 @@ async def _apply_predictive_engine(db: AsyncSession, db_olcum: models.SuOlcumu):
     return db_olcum
 
 
-@app.get("/admin/trend-analysis/{istasyon_id}", tags=["Admin"])
+@app.get("/admin/trend-analysis/{istasyon_id}", response_model=schemas.TrendAnalysisResponse, tags=["Admin"])
 async def get_trend_analysis(
     istasyon_id: int,
     db: AsyncSession = Depends(get_db),
@@ -722,6 +766,8 @@ async def get_trend_analysis(
     )
     result = await db.execute(q)
     measurements = result.scalars().all()
+    # Önceden predictive_engine tarafından hesaplanıp DB'ye yazılan ancak response'a dahil edilmeyen
+    # projected_value ve projection_message alanları artık response'a dahil edilerek istemciye ulaştırılıyor.
     return {
         "istasyon_id": istasyon_id,
         "measurements": [
@@ -730,6 +776,8 @@ async def get_trend_analysis(
                 "date": m.olcum_tarihi,
                 "trend_risk_score": m.trend_risk_score,
                 "trend_direction": m.trend_direction,
+                "projected_value": m.projected_value,
+                "projection_message": m.projection_message,
             }
             for m in measurements
         ],
@@ -740,18 +788,20 @@ async def get_trend_analysis(
 async def list_olcumler(
     istasyon_id: int | None = None,
     limit: int = 20,
+    offset: int = 0,
     db: AsyncSession = Depends(get_db),
     current_user: models.Kullanici = Depends(require_role(["saha_personeli", "yonetici"])),
 ):
     """
-    Son ölçümleri listeler. Opsiyonel istasyon_id filtresi ve limit parametresi desteklenir.
-    SimulatorScreen ve dashboard için kullanılır.
+    Son ölçümleri listeler. Opsiyonel istasyon_id filtresi, limit ve offset parametreleri desteklenir.
+    SimulatorScreen, geçmiş listesi ve dashboard için kullanılır.
     """
     q = (
         select(models.SuOlcumu)
         .join(models.Istasyon, models.Istasyon.id == models.SuOlcumu.istasyon_id)
         .filter(models.Istasyon.organization_id == current_user.organization_id)
         .order_by(models.SuOlcumu.olcum_tarihi.desc())
+        .offset(offset)
         .limit(limit)
     )
     if istasyon_id is not None:
@@ -807,7 +857,7 @@ async def create_olcum(
     kural_motoru_sonucu = await hesapla_anomali_durumu(db, analiz_girdisi)
 
     db_olcum.risk_seviyesi = kural_motoru_sonucu.get("en_yuksek_risk_seviyesi", "NORMAL")
-    anomaly_counter.labels(severity=db_olcum.risk_seviyesi.lower()).inc()
+    anomaly_counter.labels(severity=SEVERITY_MAP.get(db_olcum.risk_seviyesi, "normal")).inc()
 
     await _apply_predictive_engine(db, db_olcum)
 
@@ -885,18 +935,18 @@ def _uret_olcum_verileri(mod: str = "karisik") -> dict:
     if mod == "normal":
         return {
             "ph": round(random.uniform(7.0, 7.8), 2),
-            "serbest_klor": round(random.uniform(0.3, 1.2), 2),
+            "serbest_klor": round(random.uniform(0.25, 0.45), 2),
             "bulaniklik": round(random.uniform(0.1, 0.8), 2),
-            "iletkenlik": round(random.uniform(280, 480), 1),
+            "iletkenlik": round(random.uniform(280, 380), 1),
             "sicaklik": round(random.uniform(14, 22), 1),
         }
     elif mod == "anomali":
-        # Kasıtlı kritik değerler
+        # Kasıtlı kritik değerler (Kritik eşikler: pH < 6.5 veya > 9.5, klor < 0.1/0.2, bulanıklık > 5.0, iletkenlik > 2000)
         return {
-            "ph": round(random.choice([random.uniform(5.5, 6.3), random.uniform(8.8, 9.5)]), 2),
+            "ph": round(random.choice([random.uniform(5.0, 6.2), random.uniform(9.6, 10.5)]), 2),
             "serbest_klor": round(random.uniform(0.01, 0.08), 3),
             "bulaniklik": round(random.uniform(5.5, 12.0), 2),
-            "iletkenlik": round(random.uniform(820, 1100), 1),
+            "iletkenlik": round(random.uniform(2100, 3200), 1),
             "sicaklik": round(random.uniform(24, 32), 1),
         }
     else:  # karisik
@@ -974,7 +1024,7 @@ async def sim_tetikle(
     analiz_girdisi = _olcum_to_analiz_girdisi(db_olcum)
     kural_motoru_sonucu = await hesapla_anomali_durumu(db, analiz_girdisi)
     db_olcum.risk_seviyesi = kural_motoru_sonucu.get("en_yuksek_risk_seviyesi", "NORMAL")
-    anomaly_counter.labels(severity=db_olcum.risk_seviyesi.lower()).inc()
+    anomaly_counter.labels(severity=SEVERITY_MAP.get(db_olcum.risk_seviyesi, "normal")).inc()
 
     await _apply_predictive_engine(db, db_olcum)
 
@@ -1042,15 +1092,22 @@ async def get_su_olcumu_aksiyon_onerisi(
     analiz_girdisi = _olcum_to_analiz_girdisi(olcum)
     kural_motoru_sonucu = await hesapla_anomali_durumu(db, analiz_girdisi)
 
-    teknik_oneri, llm_durumu, provider = await olustur_teknik_aksiyon_onerisi(
+    teknik_oneri, llm_durumu, provider, benzer_vakalar = await olustur_teknik_aksiyon_onerisi(
         olcum_id=id, anomali_raporu=kural_motoru_sonucu, db=db
     )
 
-    # 4. Faz: LLM-as-a-Judge kalite kontrolünü arka plana at (Sıfır gecikme)
+    # 4. Faz: LLM-as-a-Judge kalite kontrolünü arka plana at (Sıfır gecikme, RAG benzer_vakalar ile)
     from app.judge_service import degerlendir_llm_ciktisi
 
     background_tasks.add_task(
-        degerlendir_llm_ciktisi, id, kural_motoru_sonucu, teknik_oneri, SessionLocal, provider, olcum.istasyon_id
+        degerlendir_llm_ciktisi,
+        id,
+        kural_motoru_sonucu,
+        teknik_oneri,
+        SessionLocal,
+        provider,
+        olcum.istasyon_id,
+        benzer_vakalar,
     )
 
     return {"olcum_id": id, "aksiyon_onerisi": teknik_oneri, "llm_durumu": llm_durumu}
@@ -1121,3 +1178,194 @@ async def add_user_to_organization(
 
     await log_audit(db, kullanici_id=current_user.id, islem_tipi="USER_EKLENDI", detay=f"Organizasyona ({org_id}) yeni kullanıcı eklendi: {user_data.email}")
     return db_user
+
+
+# ---------------------------------------------------------------------------
+# Admin - Eşik Değerleri ve Anomali Kuralları Yönetim Endpoint'leri
+# ---------------------------------------------------------------------------
+
+
+@app.get("/api/admin/esikler", response_model=List[schemas.EsikDegeriResponse], tags=["Yönetici - Eşik & Kural Yönetimi"])
+async def list_admin_esikler(
+    db: AsyncSession = Depends(get_db),
+    current_user: models.Kullanici = Depends(require_role(["yonetici"])),
+):
+    """
+    Yöneticinin kendi organizasyonuna ait eşik değerlerini listeler.
+    """
+    result = await db.execute(
+        select(models.EsikDegeri).filter(models.EsikDegeri.organization_id == current_user.organization_id)
+    )
+    return result.scalars().all()
+
+
+@app.post("/api/admin/esikler", response_model=schemas.EsikDegeriResponse, tags=["Yönetici - Eşik & Kural Yönetimi"])
+async def create_admin_esik(
+    esik_data: schemas.EsikDegeriCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: models.Kullanici = Depends(require_role(["yonetici"])),
+):
+    """
+    Yöneticinin kendi organizasyonuna yeni bir eşik değeri ekler.
+    """
+    existing_res = await db.execute(
+        select(models.EsikDegeri).filter(
+            models.EsikDegeri.organization_id == current_user.organization_id,
+            models.EsikDegeri.parametre_adi == esik_data.parametre_adi,
+        )
+    )
+    if existing_res.scalars().first():
+        raise HTTPException(
+            status_code=400,
+            detail=f"'{esik_data.parametre_adi}' parametresi için eşik değeri zaten tanımlı.",
+        )
+
+    db_esik = models.EsikDegeri(
+        organization_id=current_user.organization_id,
+        parametre_adi=esik_data.parametre_adi,
+        min_deger=esik_data.min_deger,
+        max_deger=esik_data.max_deger,
+        birim=esik_data.birim,
+        kaynak_url=esik_data.kaynak_url,
+    )
+    db.add(db_esik)
+    await db.commit()
+    await db.refresh(db_esik)
+    await log_audit(
+        db,
+        kullanici_id=current_user.id,
+        islem_tipi="ESIK_EKLENDI",
+        detay=f"Eşik eklendi: {db_esik.parametre_adi}",
+    )
+    return db_esik
+
+
+@app.put("/api/admin/esikler/{id}", response_model=schemas.EsikDegeriResponse, tags=["Yönetici - Eşik & Kural Yönetimi"])
+async def update_admin_esik(
+    id: int,
+    esik_data: schemas.EsikDegeriUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: models.Kullanici = Depends(require_role(["yonetici"])),
+):
+    """
+    Yöneticinin kendi organizasyonuna ait bir eşik değerini günceller.
+    """
+    result = await db.execute(
+        select(models.EsikDegeri).filter(
+            models.EsikDegeri.id == id,
+            models.EsikDegeri.organization_id == current_user.organization_id,
+        )
+    )
+    db_esik = result.scalars().first()
+    if not db_esik:
+        raise HTTPException(status_code=404, detail="Eşik değeri bulunamadı veya bu işlem için yetkiniz yok.")
+
+    if esik_data.min_deger is not None:
+        db_esik.min_deger = esik_data.min_deger
+    if esik_data.max_deger is not None:
+        db_esik.max_deger = esik_data.max_deger
+    if esik_data.birim is not None:
+        db_esik.birim = esik_data.birim
+    if esik_data.kaynak_url is not None:
+        db_esik.kaynak_url = esik_data.kaynak_url
+
+    await db.commit()
+    await db.refresh(db_esik)
+    await log_audit(
+        db,
+        kullanici_id=current_user.id,
+        islem_tipi="ESIK_GUNCELLENDI",
+        detay=f"Eşik güncellendi: {db_esik.parametre_adi} (id={id})",
+    )
+    return db_esik
+
+
+@app.get("/api/admin/kurallar", response_model=List[schemas.AnomaliKuraliResponse], tags=["Yönetici - Eşik & Kural Yönetimi"])
+async def list_admin_kurallar(
+    db: AsyncSession = Depends(get_db),
+    current_user: models.Kullanici = Depends(require_role(["yonetici"])),
+):
+    """
+    Yöneticinin kendi organizasyonuna ait anomali kurallarını listeler.
+    """
+    result = await db.execute(
+        select(models.AnomaliKurali).filter(models.AnomaliKurali.organization_id == current_user.organization_id)
+    )
+    return result.scalars().all()
+
+
+@app.post("/api/admin/kurallar", response_model=schemas.AnomaliKuraliResponse, tags=["Yönetici - Eşik & Kural Yönetimi"])
+async def create_admin_kural(
+    kural_data: schemas.AnomaliKuraliCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: models.Kullanici = Depends(require_role(["yonetici"])),
+):
+    """
+    Yöneticinin kendi organizasyonuna yeni bir anomali kuralı ekler (Syntax doğrulamalı).
+    """
+    gecerli, hata = kural_mantigi_gecerli_mi(kural_data.kural_mantigi)
+    if not gecerli:
+        raise HTTPException(status_code=400, detail=f"Geçersiz kural mantığı syntax'ı: {hata}")
+
+    db_kural = models.AnomaliKurali(
+        organization_id=current_user.organization_id,
+        kural_adi=kural_data.kural_adi,
+        kural_mantigi=kural_data.kural_mantigi,
+        risk_seviyesi=kural_data.risk_seviyesi,
+        saha_uyarisi=kural_data.saha_uyarisi,
+    )
+    db.add(db_kural)
+    await db.commit()
+    await db.refresh(db_kural)
+    await log_audit(
+        db,
+        kullanici_id=current_user.id,
+        islem_tipi="KURAL_EKLENDI",
+        detay=f"Kural eklendi: {db_kural.kural_adi}",
+    )
+    return db_kural
+
+
+@app.put("/api/admin/kurallar/{id}", response_model=schemas.AnomaliKuraliResponse, tags=["Yönetici - Eşik & Kural Yönetimi"])
+async def update_admin_kural(
+    id: int,
+    kural_data: schemas.AnomaliKuraliUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: models.Kullanici = Depends(require_role(["yonetici"])),
+):
+    """
+    Yöneticinin kendi organizasyonuna ait bir anomali kuralını günceller (Syntax doğrulamalı).
+    """
+    result = await db.execute(
+        select(models.AnomaliKurali).filter(
+            models.AnomaliKurali.id == id,
+            models.AnomaliKurali.organization_id == current_user.organization_id,
+        )
+    )
+    db_kural = result.scalars().first()
+    if not db_kural:
+        raise HTTPException(status_code=404, detail="Anomali kuralı bulunamadı veya bu işlem için yetkiniz yok.")
+
+    if kural_data.kural_mantigi is not None:
+        gecerli, hata = kural_mantigi_gecerli_mi(kural_data.kural_mantigi)
+        if not gecerli:
+            raise HTTPException(status_code=400, detail=f"Geçersiz kural mantığı syntax'ı: {hata}")
+        db_kural.kural_mantigi = kural_data.kural_mantigi
+
+    if kural_data.kural_adi is not None:
+        db_kural.kural_adi = kural_data.kural_adi
+    if kural_data.risk_seviyesi is not None:
+        db_kural.risk_seviyesi = kural_data.risk_seviyesi
+    if kural_data.saha_uyarisi is not None:
+        db_kural.saha_uyarisi = kural_data.saha_uyarisi
+
+    await db.commit()
+    await db.refresh(db_kural)
+    await log_audit(
+        db,
+        kullanici_id=current_user.id,
+        islem_tipi="KURAL_GUNCELLENDI",
+        detay=f"Kural güncellendi: {db_kural.kural_adi} (id={id})",
+    )
+    return db_kural
+

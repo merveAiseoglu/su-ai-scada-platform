@@ -1,8 +1,10 @@
 import uuid
-from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, String, Text, Uuid
+from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint, Uuid
+from sqlalchemy.orm import validates
 from sqlalchemy.sql import func
 
 from app.database import Base
+from app.validators import kural_mantigi_gecerli_mi
 
 class Organization(Base):
     __tablename__ = "organizations"
@@ -48,34 +50,43 @@ class SuOlcumu(Base):
     projected_value = Column(Float, nullable=True, default=None)
     projection_message = Column(String, nullable=True, default=None)
 
-    # TODO(Migration): For existing databases without Alembic, run the following SQL manually:
-    # ALTER TABLE su_olcumleri ADD COLUMN trend_risk_score INTEGER;
-    # ALTER TABLE su_olcumleri ADD COLUMN trend_direction VARCHAR;
-    # ALTER TABLE su_olcumleri ADD COLUMN projected_value FLOAT;
-    # ALTER TABLE su_olcumleri ADD COLUMN projection_message VARCHAR;
+    # Migration: alembic/versions/47ab31706e6f_add_predictive_engine_columns.py
 
 
 class EsikDegeri(Base):
     __tablename__ = "esik_degerleri"
 
     id = Column(Integer, primary_key=True, index=True)
-    parametre_adi = Column(String, unique=True, index=True, nullable=False)  # örn: "ph", "serbest_klor"
+    organization_id = Column(Uuid, ForeignKey("organizations.id"), nullable=False)
+    parametre_adi = Column(String, index=True, nullable=False)  # örn: "ph", "serbest_klor"
     min_deger = Column(Float, nullable=True)
     max_deger = Column(Float, nullable=True)
     birim = Column(String, nullable=False)
     kaynak_url = Column(String, nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint("organization_id", "parametre_adi", name="uq_esik_org_param"),
+    )
 
 
 class AnomaliKurali(Base):
     __tablename__ = "anomali_kurallari"
 
     id = Column(Integer, primary_key=True, index=True)
+    organization_id = Column(Uuid, ForeignKey("organizations.id"), nullable=False)
     kural_adi = Column(String, nullable=False)
     kural_mantigi = Column(
         Text, nullable=False
     )  # Python'da eval() ile çalıştırılabilecek format: "ph < 6.5 or ph > 9.5"
     risk_seviyesi = Column(String, nullable=False)  # "DÜŞÜK", "ORTA", "KRİTİK"
     saha_uyarisi = Column(Text, nullable=False)
+
+    @validates("kural_mantigi")
+    def validate_kural_mantigi(self, key, value):
+        gecerli, hata = kural_mantigi_gecerli_mi(value)
+        if not gecerli:
+            raise ValueError(f"Geçersiz kural mantığı syntax'ı: {hata}")
+        return value
 
 
 class AnalizMetrikleri(Base):
