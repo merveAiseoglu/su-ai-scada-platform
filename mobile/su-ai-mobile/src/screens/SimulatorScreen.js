@@ -2,10 +2,10 @@
 // Faz 4 — IoT Simülasyon Takip Ekranı
 // Son simüle ölçümleri gösterir, tek tetikleme butonuna sahip.
 
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View, Text, FlatList, TouchableOpacity, StyleSheet,
-  ActivityIndicator, Alert, RefreshControl, Animated,
+  ActivityIndicator, Alert, RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -85,8 +85,6 @@ export default function SimulatorScreen({ navigation }) {
   const [yenileniyor, setYenileniyor] = useState(false);
   const [tetikleniyorMod, setTetikleniyorMod] = useState(null); // null | 'normal' | 'anomali' | 'karisik'
 
-  // Pulse animasyon (tetikleme butonu için)
-  const pulseAnim = useRef(new Animated.Value(1)).current;
 
   const veriYukle = useCallback(async (sessiz = false) => {
     if (!sessiz) setYukleniyor(true);
@@ -117,12 +115,6 @@ export default function SimulatorScreen({ navigation }) {
 
   const tetikle = async (mod) => {
     setTetikleniyorMod(mod);
-
-    // Pulse animasyonu
-    Animated.sequence([
-      Animated.timing(pulseAnim, { toValue: 0.9, duration: 100, useNativeDriver: true }),
-      Animated.timing(pulseAnim, { toValue: 1.0, duration: 200, useNativeDriver: true }),
-    ]).start();
 
     try {
       // İlk aktif istasyonu bul
@@ -203,21 +195,21 @@ export default function SimulatorScreen({ navigation }) {
             { mod: "anomali", label: "Anomali",  renk: "#E74C3C", ikon: "alert-circle-outline" },
             { mod: "karisik", label: "Karışık",  renk: "#0056b3", ikon: "shuffle-variant" },
           ].map(({ mod, label, renk, ikon }) => (
-            <Animated.View key={mod} style={{ transform: [{ scale: tetikleniyorMod === mod ? pulseAnim : 1 }] }}>
-              <TouchableOpacity
-                style={[styles.tetikleBtn, { borderColor: renk, backgroundColor: tetikleniyorMod === mod ? renk : "#FFF" }]}
-                onPress={() => tetikle(mod)}
-                disabled={tetikleniyorMod !== null}
-              >
-                {tetikleniyorMod === mod
-                  ? <ActivityIndicator size="small" color="#FFF" />
-                  : <MaterialCommunityIcons name={ikon} size={18} color={renk} />
-                }
-                <Text style={[styles.tetikleBtnText, { color: tetikleniyorMod === mod ? "#FFF" : renk }]}>
-                  {label}
-                </Text>
-              </TouchableOpacity>
-            </Animated.View>
+            <TouchableOpacity
+              key={mod}
+              style={[styles.tetikleBtn, { borderColor: renk, backgroundColor: tetikleniyorMod === mod ? renk : "#FFF" }]}
+              onPress={() => tetikle(mod)}
+              disabled={tetikleniyorMod !== null}
+              activeOpacity={0.7}
+            >
+              {tetikleniyorMod === mod
+                ? <ActivityIndicator size="small" color="#FFF" />
+                : <MaterialCommunityIcons name={ikon} size={18} color={renk} />
+              }
+              <Text style={[styles.tetikleBtnText, { color: tetikleniyorMod === mod ? "#FFF" : renk }]}>
+                {label}
+              </Text>
+            </TouchableOpacity>
           ))}
         </View>
       </View>

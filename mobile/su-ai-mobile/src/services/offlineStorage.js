@@ -85,6 +85,18 @@ export async function getBekleyenOlcumler() {
 }
 
 /**
+ * Henüz sunucuya aktarılmamış tüm yerel ölçümleri (bekliyor, gonderiliyor, hata) getirir.
+ * @returns {Array} Senkronize edilmemiş ölçümler listesi
+ */
+export async function getSenkronizeEdilmemisOlcumler() {
+  return await withDB(async (db) => {
+    return await db.getAllAsync(
+      `SELECT * FROM bekleyen_olcumler WHERE durum != 'tamamlandi' ORDER BY olusturulma DESC`
+    );
+  });
+}
+
+/**
  * Belirli bir ölçümün durumunu günceller.
  * @param {number} id - Yerel kayıt ID'si
  * @param {'bekliyor'|'gonderiliyor'|'tamamlandi'|'hata'} durum

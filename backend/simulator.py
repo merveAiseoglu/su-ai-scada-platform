@@ -13,7 +13,7 @@ Kullanım:
     python simulator.py --mod karisik --aralik 10 --adet 20
 
 Argümanlar:
-    --url         Backend URL  (varsayılan: http://192.168.1.101:8080)
+    --url         Backend URL  (varsayılan: http://192.168.1.104:8080)
     --kullanici   Admin e-posta (varsayılan: admin@suski.gov.tr)
     --sifre       Admin şifre  (varsayılan: admin123)
     --istasyon    İstasyon ID  (varsayılan: tüm aktif istasyonlar döngüsel)
@@ -190,7 +190,7 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
     )
-    parser.add_argument("--url",       default="http://192.168.1.101:8080", help="Backend URL")
+    parser.add_argument("--url",       default="http://192.168.1.104:8080", help="Backend URL")
     parser.add_argument("--kullanici", default="admin@suski.gov.tr",        help="Admin e-posta")
     parser.add_argument("--sifre",     default="admin123",                  help="Admin şifre")
     parser.add_argument("--istasyon",  type=int, default=None,              help="Belirli istasyon ID (yoksa döngüsel)")

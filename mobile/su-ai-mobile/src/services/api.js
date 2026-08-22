@@ -1,9 +1,14 @@
 // services/api.js
 // Su-AI Backend API Katmanı
-// Backend sunucu IP adresi — fiziksel cihaz/emülatör erişimi için güncellendi.
+import Constants from 'expo-constants';
 
-// ÖNEMLİ: Sunucu IP'si değiştiğinde aşağıdaki BASE_URL'yi güncelleyin.
-export const API_URL = "http://192.168.1.101:8080";
+// Backend API URL'si merkezi olarak app.json -> expo.extra.apiBaseUrl üzerinden okunur.
+// Yerel ağ IP'si değiştiğinde sadece app.json içindeki apiBaseUrl değerini güncellemek yeterlidir.
+export const API_URL =
+  Constants?.expoConfig?.extra?.apiBaseUrl ||
+  Constants?.manifest?.extra?.apiBaseUrl ||
+  "http://192.168.1.104:8080";
+
 const BASE_URL = API_URL;
 
 let cachedToken = null;
@@ -181,12 +186,13 @@ export async function topluOlcumGonder(olcumListesi) {
 // ---------------------------------------------------------------------------
 
 /**
- * Son ölçümleri listeler (isteğe bağlı istasyon filtresi ve limit).
+ * Son ölçümleri listeler (isteğe bağlı istasyon filtresi, limit ve offset).
  * @param {number} [limit=20]
  * @param {number|null} [istasyonId=null]
+ * @param {number} [offset=0]
  */
-export async function getSonOlcumler(limit = 20, istasyonId = null) {
-  let path = `/olcumler/?limit=${limit}`;
+export async function getSonOlcumler(limit = 20, istasyonId = null, offset = 0) {
+  let path = `/olcumler/?limit=${limit}&offset=${offset}`;
   if (istasyonId != null) path += `&istasyon_id=${istasyonId}`;
   return apiRequest(path);
 }

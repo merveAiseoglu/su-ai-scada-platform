@@ -145,12 +145,13 @@ export default function IstasyonListesiScreen({ navigation }) {
   };
 
   const renderIstasyon = ({ item }) => (
-    <TouchableOpacity
-      style={[styles.kart, !item.aktif_mi && styles.kartPasif]}
-      onPress={() => item.aktif_mi && navigation.navigate("MeasurementForm", { istasyon: item })}
-      activeOpacity={0.8}
-    >
-      <View style={styles.kartSol}>
+    <View style={[styles.kart, !item.aktif_mi && styles.kartPasif]}>
+      <TouchableOpacity
+        style={styles.kartSolContainer}
+        onPress={() => item.aktif_mi && navigation.navigate("MeasurementForm", { istasyon: item })}
+        activeOpacity={0.8}
+        disabled={!item.aktif_mi}
+      >
         <MaterialCommunityIcons
           name={TIP_IKONLARI[item.tip] || "map-marker"}
           size={32}
@@ -164,13 +165,36 @@ export default function IstasyonListesiScreen({ navigation }) {
             <Text style={styles.tipText}>{item.tip}</Text>
           </View>
         </View>
-      </View>
+      </TouchableOpacity>
+
       {item.aktif_mi ? (
-        <MaterialCommunityIcons name="chevron-right" size={28} color="#0056b3" style={styles.okIcon} />
+        <View style={styles.kartSag}>
+          <TouchableOpacity
+            style={styles.historyBtn}
+            onPress={() =>
+              navigation.navigate("StationHistoryScreen", {
+                station_id: item.id,
+                station_ad: item.ad,
+              })
+            }
+            activeOpacity={0.7}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <MaterialCommunityIcons name="chart-timeline-variant" size={22} color="#0056b3" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => navigation.navigate("MeasurementForm", { istasyon: item })}
+            activeOpacity={0.8}
+          >
+            <MaterialCommunityIcons name="chevron-right" size={28} color="#0056b3" style={styles.okIcon} />
+          </TouchableOpacity>
+        </View>
       ) : (
-        <View style={styles.pasifBadge}><Text style={styles.pasifText}>Pasif</Text></View>
+        <View style={styles.pasifBadge}>
+          <Text style={styles.pasifText}>Pasif</Text>
+        </View>
       )}
-    </TouchableOpacity>
+    </View>
   );
 
   return (
@@ -338,6 +362,15 @@ const styles = StyleSheet.create({
   },
   kartPasif: { opacity: 0.5, backgroundColor: "#F5F5F5" },
   kartSol: { flexDirection: "row", alignItems: "center", flex: 1 },
+  kartSolContainer: { flexDirection: "row", alignItems: "center", flex: 1 },
+  kartSag: { flexDirection: "row", alignItems: "center", gap: 8 },
+  historyBtn: {
+    backgroundColor: "#E3F2FD",
+    padding: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#BBDEFB",
+  },
   kartBilgi: { marginLeft: 14, flex: 1 },
   istasyonIkon: { marginRight: 4 },
   istasyonAd: { fontSize: 18, fontWeight: "700", color: "#333333", marginBottom: 4 },
