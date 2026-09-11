@@ -17,10 +17,13 @@ from app.models import Kullanici, Istasyon, Organization
 import uuid
 
 # Use postgres test database
+# Priority: TEST_DATABASE_URL → DATABASE_URL (set by CI) → local default
 default_db_host = "localhost" if os.name == "nt" else "postgres"
-TEST_DATABASE_URL = os.getenv(
-    "TEST_DATABASE_URL",
-    f"postgresql+asyncpg://postgres:merve-dev-password@{default_db_host}:5432/su_ai_test"
+_local_default = f"postgresql+asyncpg://postgres:merve-dev-password@{default_db_host}:5432/su_ai_test"
+TEST_DATABASE_URL = (
+    os.getenv("TEST_DATABASE_URL")
+    or os.getenv("DATABASE_URL")
+    or _local_default
 )
 
 engine = create_async_engine(

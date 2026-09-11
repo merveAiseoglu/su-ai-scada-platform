@@ -14,9 +14,9 @@ jobs:
       postgres:
         image: postgres:15
         env:
-          POSTGRES_USER: admin
-          POSTGRES_PASSWORD: password
-          POSTGRES_DB: su_ai_db
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: merve-dev-password
+          POSTGRES_DB: su_ai_test
         ports:
           - 5432:5432
         options: >-
@@ -49,6 +49,6 @@ jobs:
     - name: Run tests with pytest
       working-directory: ./backend
       env:
-        DATABASE_URL: postgresql+asyncpg://admin:password@localhost:5432/su_ai_db
+        TEST_DATABASE_URL: postgresql+asyncpg://postgres:merve-dev-password@localhost:5432/su_ai_test
       run: |
         pytest --cov=app.engine --cov-fail-under=90 tests/
