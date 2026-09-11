@@ -101,11 +101,14 @@ class AksiyonOneriResponse(BaseModel):
 # Kimlik Doğrulama (Auth) Şemaları
 # ---------------------------------------------------------------------------
 
+
 class OrganizationBase(BaseModel):
     name: str
 
+
 class OrganizationCreate(OrganizationBase):
     pass
+
 
 class OrganizationResponse(OrganizationBase):
     id: uuid.UUID
@@ -307,5 +310,3 @@ class AnomaliKuraliResponse(AnomaliKuraliBase):
     organization_id: uuid.UUID
 
     model_config = ConfigDict(from_attributes=True)
-
-

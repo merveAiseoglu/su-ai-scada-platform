@@ -105,7 +105,7 @@ async def dispatch_critical_alerts(olcum_id: int, db_factory):
                 select(Kullanici).filter(
                     Kullanici.rol == "yonetici",
                     Kullanici.aktif_mi.is_(True),
-                    Kullanici.organization_id == istasyon.organization_id
+                    Kullanici.organization_id == istasyon.organization_id,
                 )
             )
             admins = admins_result.scalars().all()

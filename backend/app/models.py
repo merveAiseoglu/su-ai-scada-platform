@@ -66,9 +66,7 @@ class EsikDegeri(Base):
     birim = Column(String, nullable=False)
     kaynak_url = Column(String, nullable=True)
 
-    __table_args__ = (
-        UniqueConstraint("organization_id", "parametre_adi", name="uq_esik_org_param"),
-    )
+    __table_args__ = (UniqueConstraint("organization_id", "parametre_adi", name="uq_esik_org_param"),)
 
 
 class AnomaliKurali(Base):

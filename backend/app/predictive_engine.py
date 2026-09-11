@@ -14,11 +14,11 @@ class TrendResult(TypedDict):
 # Fiziksel sınırlar: (min, max) — None = o yönde sınır yok.
 # sicaklik fiziksel olarak negatif olabilir (donma altı) → her iki yönde de sınır yok.
 _PARAM_BOUNDS: dict[str, tuple[float | None, float | None]] = {
-    "bulaniklik":   (0.0,  None),   # NTU: negatif olamaz
-    "serbest_klor": (0.0,  None),   # mg/L: negatif olamaz
-    "iletkenlik":   (0.0,  None),   # µS/cm: negatif olamaz
-    "sicaklik":     (None, None),   # °C: donma altı fiziksel olarak geçerli
-    "ph":           (0.0,  14.0),   # pH ölçeği: 0–14
+    "bulaniklik": (0.0, None),  # NTU: negatif olamaz
+    "serbest_klor": (0.0, None),  # mg/L: negatif olamaz
+    "iletkenlik": (0.0, None),  # µS/cm: negatif olamaz
+    "sicaklik": (None, None),  # °C: donma altı fiziksel olarak geçerli
+    "ph": (0.0, 14.0),  # pH ölçeği: 0–14
 }
 
 
@@ -45,9 +45,11 @@ def _apply_physical_bounds(
     clipped = value != original
     if clipped:
         logger.debug(
-            "analyze_trend: projected_value clipped %.4f → %.4f "
-            "(param=%s, station=%d)",
-            original, value, parameter, station_id,
+            "analyze_trend: projected_value clipped %.4f → %.4f " "(param=%s, station=%d)",
+            original,
+            value,
+            parameter,
+            station_id,
         )
     return value, clipped
 
@@ -110,9 +112,7 @@ def analyze_trend(station_id: int, parameter: str, recent_values: list[float]) -
         # Fiziksel sınır clipping — modelin fiziksel olarak imkânsız değer
         # üretmesini engelle. Risk skoru ve trend yönü clip'ten ÖNCE hesaplandığı
         # için bunlar etkilenmez.
-        projected_value, clipped = _apply_physical_bounds(
-            parameter, projected_value, station_id
-        )
+        projected_value, clipped = _apply_physical_bounds(parameter, projected_value, station_id)
 
         # Projection message in Turkish
         param_names = {

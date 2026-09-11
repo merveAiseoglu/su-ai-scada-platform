@@ -102,15 +102,27 @@ async def seed_data():
             istasyonlar = [
                 models.Istasyon(
                     organization_id=default_org.id,
-                    ad="Merkez Su Deposu", konum="Şanlıurfa Merkez", tip="Depo", enlem=37.1674, boylam=38.7955
+                    ad="Merkez Su Deposu",
+                    konum="Şanlıurfa Merkez",
+                    tip="Depo",
+                    enlem=37.1674,
+                    boylam=38.7955,
                 ),
                 models.Istasyon(
                     organization_id=default_org.id,
-                    ad="Karaköprü Kuyusu", konum="Karaköprü", tip="Kuyu", enlem=37.1901, boylam=38.7885
+                    ad="Karaköprü Kuyusu",
+                    konum="Karaköprü",
+                    tip="Kuyu",
+                    enlem=37.1901,
+                    boylam=38.7885,
                 ),
                 models.Istasyon(
                     organization_id=default_org.id,
-                    ad="Haliliye Şebeke", konum="Haliliye", tip="Şebeke", enlem=37.1583, boylam=38.8078
+                    ad="Haliliye Şebeke",
+                    konum="Haliliye",
+                    tip="Şebeke",
+                    enlem=37.1583,
+                    boylam=38.8078,
                 ),
             ]
             db.add_all(istasyonlar)

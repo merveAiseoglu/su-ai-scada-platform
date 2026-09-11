@@ -9,6 +9,7 @@ _background_tasks: Set[asyncio.Task] = set()
 
 logger = logging.getLogger(__name__)
 
+
 def _handle_task_result(task: asyncio.Task) -> None:
     try:
         task.result()
@@ -18,6 +19,7 @@ def _handle_task_result(task: asyncio.Task) -> None:
         logger.error(f"Background task failed with exception: {e}", exc_info=True)
     finally:
         _background_tasks.discard(task)
+
 
 def fire_and_forget(coro) -> asyncio.Task:
     """

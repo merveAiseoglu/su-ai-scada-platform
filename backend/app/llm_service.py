@@ -31,6 +31,7 @@ local_client = AsyncOpenAI(base_url="http://ollama:11434/v1", api_key="ollama", 
 
 _llm_semaphore = None
 
+
 def get_llm_semaphore():
     global _llm_semaphore
     if _llm_semaphore is None:

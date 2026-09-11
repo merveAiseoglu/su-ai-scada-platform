@@ -7,9 +7,7 @@ from sqlalchemy.future import select
 from app import models
 
 
-async def hesapla_anomali_durumu(
-    db: AsyncSession, olcum_verileri: dict, organization_id: uuid.UUID | None = None
-):
+async def hesapla_anomali_durumu(db: AsyncSession, olcum_verileri: dict, organization_id: uuid.UUID | None = None):
     """
     Saha ölçüm verilerini alır, ilgili organizasyonun veritabanındaki dinamik
     anomali kuralları ve eşik değerleriyle karşılaştırarak en yüksek risk seviyesini ve tespitleri döndürür.
@@ -21,9 +19,7 @@ async def hesapla_anomali_durumu(
             organization_id = org_val
         elif olcum_verileri.get("istasyon_id"):
             st_res = await db.execute(
-                select(models.Istasyon.organization_id).filter(
-                    models.Istasyon.id == olcum_verileri["istasyon_id"]
-                )
+                select(models.Istasyon.organization_id).filter(models.Istasyon.id == olcum_verileri["istasyon_id"])
             )
             organization_id = st_res.scalar_one_or_none()
 

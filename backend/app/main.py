@@ -66,15 +66,15 @@ async def lifespan(app: FastAPI):
 
         # Varsayılan Organizasyon (SUSKİ) oluştur (Eğer yoksa)
         import uuid
-        org_result = await conn.execute(select(models.Organization).filter(models.Organization.name == "SUSKİ Genel Müdürlüğü"))
+
+        org_result = await conn.execute(
+            select(models.Organization).filter(models.Organization.name == "SUSKİ Genel Müdürlüğü")
+        )
         org = org_result.fetchone()
         if not org:
             default_org_id = uuid.uuid4()
             await conn.execute(
-                models.Organization.__table__.insert().values(
-                    id=default_org_id,
-                    name="SUSKİ Genel Müdürlüğü"
-                )
+                models.Organization.__table__.insert().values(id=default_org_id, name="SUSKİ Genel Müdürlüğü")
             )
             print("[OK] Varsayilan organizasyon (SUSKİ) eklendi.")
         else:
@@ -197,6 +197,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+
 # ---------------------------------------------------------------------------
 # Reports Endpoint
 # ---------------------------------------------------------------------------
@@ -204,7 +205,7 @@ app = FastAPI(
 async def get_monthly_report(
     month: str = Query(None, description="Format YYYY-MM. Defaults to current month."),
     db: AsyncSession = Depends(get_db),
-    current_user: models.Kullanici = Depends(require_role(["yonetici"]))
+    current_user: models.Kullanici = Depends(require_role(["yonetici"])),
 ):
     if month is None:
         month = _dt.datetime.now().strftime("%Y-%m")
@@ -221,7 +222,9 @@ async def get_monthly_report(
 
     from sqlalchemy import func
 
-    stations_result = await db.execute(select(models.Istasyon).filter(models.Istasyon.organization_id == current_user.organization_id))
+    stations_result = await db.execute(
+        select(models.Istasyon).filter(models.Istasyon.organization_id == current_user.organization_id)
+    )
     stations = stations_result.scalars().all()
     station_ids = [st.id for st in stations]
     if not station_ids:
@@ -254,12 +257,9 @@ async def get_monthly_report(
         if t_count > 0:
             a_count = anoms_map.get(st.id, 0)
             rate = (a_count / t_count) * 100
-            station_stats.append({
-                "station_name": st.ad,
-                "total_measurements": t_count,
-                "anomaly_count": a_count,
-                "anomaly_rate": rate
-            })
+            station_stats.append(
+                {"station_name": st.ad, "total_measurements": t_count, "anomaly_count": a_count, "anomaly_rate": rate}
+            )
 
     stmt_judge = (
         select(func.avg(models.AnalizMetrikleri.uygunluk_puani))
@@ -278,16 +278,13 @@ async def get_monthly_report(
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
-        headers={
-            "Content-Disposition": f'attachment; filename="report_{month}.pdf"'
-        }
+        headers={"Content-Disposition": f'attachment; filename="report_{month}.pdf"'},
     )
+
 
 # Prometheus auto-instrumentation
 instrumentator = Instrumentator()
-instrumentator.add(
-    metrics.latency(buckets=(0.1, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0, 120.0))
-)
+instrumentator.add(metrics.latency(buckets=(0.1, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0, 120.0)))
 instrumentator.instrument(app).expose(app)
 
 limiter = Limiter(key_func=get_remote_address, default_limits=[os.getenv("GLOBAL_RATE_LIMIT", "100/minute")])
@@ -424,6 +421,7 @@ async def login_for_access_token(
 @app.post("/logout", tags=["Kimlik Doğrulama"])
 async def logout(token: str = Depends(oauth2_scheme), db: AsyncSession = Depends(get_db)):
     from sqlalchemy.exc import IntegrityError
+
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         jti = payload.get("jti")
@@ -552,8 +550,9 @@ async def update_push_token(
     current_user: models.Kullanici = Depends(require_role(["yonetici"])),
 ):
     result = await db.execute(
-        select(models.Kullanici)
-        .filter(models.Kullanici.id == user_id, models.Kullanici.organization_id == current_user.organization_id)
+        select(models.Kullanici).filter(
+            models.Kullanici.id == user_id, models.Kullanici.organization_id == current_user.organization_id
+        )
     )
     user = result.scalars().first()
     if not user:
@@ -571,8 +570,9 @@ async def update_notification_preferences(
     current_user: models.Kullanici = Depends(require_role(["yonetici"])),
 ):
     result = await db.execute(
-        select(models.Kullanici)
-        .filter(models.Kullanici.id == user_id, models.Kullanici.organization_id == current_user.organization_id)
+        select(models.Kullanici).filter(
+            models.Kullanici.id == user_id, models.Kullanici.organization_id == current_user.organization_id
+        )
     )
     user = result.scalars().first()
     if not user:
@@ -634,8 +634,9 @@ async def read_istasyon(
     current_user: models.Kullanici = Depends(require_role(["saha_personeli", "yonetici"])),
 ):
     result = await db.execute(
-        select(models.Istasyon)
-        .filter(models.Istasyon.id == istasyon_id, models.Istasyon.organization_id == current_user.organization_id)
+        select(models.Istasyon).filter(
+            models.Istasyon.id == istasyon_id, models.Istasyon.organization_id == current_user.organization_id
+        )
     )
     istasyon = result.scalars().first()
     if not istasyon:
@@ -659,8 +660,9 @@ async def get_gis_istasyonlar(
     current_user: models.Kullanici = Depends(require_role(["saha_personeli", "yonetici"])),
 ):
     result = await db.execute(
-        select(models.Istasyon)
-        .filter(models.Istasyon.aktif_mi.is_(True), models.Istasyon.organization_id == current_user.organization_id)
+        select(models.Istasyon).filter(
+            models.Istasyon.aktif_mi.is_(True), models.Istasyon.organization_id == current_user.organization_id
+        )
     )
     istasyonlar = result.scalars().all()
 
@@ -830,8 +832,9 @@ async def create_olcum(
     # 1. İstasyon kontrolü
     print(f"\n[MOBİL_GELEN_HAM_PAYLOAD] {olcum.model_dump()}")
     result = await db.execute(
-        select(models.Istasyon)
-        .filter(models.Istasyon.id == olcum.istasyon_id, models.Istasyon.organization_id == current_user.organization_id)
+        select(models.Istasyon).filter(
+            models.Istasyon.id == olcum.istasyon_id, models.Istasyon.organization_id == current_user.organization_id
+        )
     )
     istasyon = result.scalars().first()
     if not istasyon:
@@ -867,6 +870,7 @@ async def create_olcum(
     # Alert Notifications
     if db_olcum.risk_seviyesi == "KRİTİK":
         from app.notification_service import dispatch_critical_alerts
+
         fire_and_forget(dispatch_critical_alerts(db_olcum.id, SessionLocal))
 
     # 4. LLM görevini arka plana at — SessionLocal factory geçilir (thread-safe)
@@ -979,8 +983,9 @@ async def sim_tetikle(
     """
     # İstasyon var mı?
     result = await db.execute(
-        select(models.Istasyon)
-        .filter(models.Istasyon.id == istasyon_id, models.Istasyon.organization_id == current_user.organization_id)
+        select(models.Istasyon).filter(
+            models.Istasyon.id == istasyon_id, models.Istasyon.organization_id == current_user.organization_id
+        )
     )
     istasyon = result.scalars().first()
     if not istasyon:
@@ -1034,6 +1039,7 @@ async def sim_tetikle(
     # Alert Notifications
     if db_olcum.risk_seviyesi == "KRİTİK":
         from app.notification_service import dispatch_critical_alerts
+
         fire_and_forget(dispatch_critical_alerts(db_olcum.id, SessionLocal))
 
     # Arka plan LLM/Trend analizi (Bu da ~5-6 sn sürer, async yapıyoruz)
@@ -1112,9 +1118,11 @@ async def get_su_olcumu_aksiyon_onerisi(
 
     return {"olcum_id": id, "aksiyon_onerisi": teknik_oneri, "llm_durumu": llm_durumu}
 
+
 # ---------------------------------------------------------------------------
 # Organization Management Endpoint'leri
 # ---------------------------------------------------------------------------
+
 
 @app.post("/admin/organizations", response_model=schemas.OrganizationResponse, tags=["Yönetici - Organizasyon"])
 async def create_organization(
@@ -1132,12 +1140,22 @@ async def create_organization(
         await db.refresh(db_org)
     except Exception as err:
         await db.rollback()
-        raise HTTPException(status_code=400, detail="Organizasyon oluşturulamadı. Aynı isimde organizasyon olabilir.") from err
+        raise HTTPException(
+            status_code=400, detail="Organizasyon oluşturulamadı. Aynı isimde organizasyon olabilir."
+        ) from err
 
-    await log_audit(db, kullanici_id=current_user.id, islem_tipi="ORG_OLUSTURULDU", detay=f"Yeni organizasyon eklendi: {org_data.name}")
+    await log_audit(
+        db,
+        kullanici_id=current_user.id,
+        islem_tipi="ORG_OLUSTURULDU",
+        detay=f"Yeni organizasyon eklendi: {org_data.name}",
+    )
     return db_org
 
-@app.post("/admin/organizations/{org_id}/users", response_model=schemas.KullaniciResponse, tags=["Yönetici - Organizasyon"])
+
+@app.post(
+    "/admin/organizations/{org_id}/users", response_model=schemas.KullaniciResponse, tags=["Yönetici - Organizasyon"]
+)
 async def add_user_to_organization(
     org_id: str,
     user_data: schemas.KullaniciCreate,
@@ -1167,7 +1185,7 @@ async def add_user_to_organization(
         sifre_hash=get_password_hash(user_data.sifre),
         rol=user_data.rol,
         aktif_mi=user_data.aktif_mi,
-        organization_id=parsed_uuid
+        organization_id=parsed_uuid,
     )
     db.add(db_user)
     try:
@@ -1175,9 +1193,16 @@ async def add_user_to_organization(
         await db.refresh(db_user)
     except Exception as err:
         await db.rollback()
-        raise HTTPException(status_code=400, detail="Kullanıcı oluşturulamadı. E-posta adresi kullanımda olabilir.") from err
+        raise HTTPException(
+            status_code=400, detail="Kullanıcı oluşturulamadı. E-posta adresi kullanımda olabilir."
+        ) from err
 
-    await log_audit(db, kullanici_id=current_user.id, islem_tipi="USER_EKLENDI", detay=f"Organizasyona ({org_id}) yeni kullanıcı eklendi: {user_data.email}")
+    await log_audit(
+        db,
+        kullanici_id=current_user.id,
+        islem_tipi="USER_EKLENDI",
+        detay=f"Organizasyona ({org_id}) yeni kullanıcı eklendi: {user_data.email}",
+    )
     return db_user
 
 
@@ -1186,7 +1211,9 @@ async def add_user_to_organization(
 # ---------------------------------------------------------------------------
 
 
-@app.get("/api/admin/esikler", response_model=List[schemas.EsikDegeriResponse], tags=["Yönetici - Eşik & Kural Yönetimi"])
+@app.get(
+    "/api/admin/esikler", response_model=List[schemas.EsikDegeriResponse], tags=["Yönetici - Eşik & Kural Yönetimi"]
+)
 async def list_admin_esikler(
     db: AsyncSession = Depends(get_db),
     current_user: models.Kullanici = Depends(require_role(["yonetici"])),
@@ -1241,7 +1268,9 @@ async def create_admin_esik(
     return db_esik
 
 
-@app.put("/api/admin/esikler/{id}", response_model=schemas.EsikDegeriResponse, tags=["Yönetici - Eşik & Kural Yönetimi"])
+@app.put(
+    "/api/admin/esikler/{id}", response_model=schemas.EsikDegeriResponse, tags=["Yönetici - Eşik & Kural Yönetimi"]
+)
 async def update_admin_esik(
     id: int,
     esik_data: schemas.EsikDegeriUpdate,
@@ -1281,7 +1310,9 @@ async def update_admin_esik(
     return db_esik
 
 
-@app.get("/api/admin/kurallar", response_model=List[schemas.AnomaliKuraliResponse], tags=["Yönetici - Eşik & Kural Yönetimi"])
+@app.get(
+    "/api/admin/kurallar", response_model=List[schemas.AnomaliKuraliResponse], tags=["Yönetici - Eşik & Kural Yönetimi"]
+)
 async def list_admin_kurallar(
     db: AsyncSession = Depends(get_db),
     current_user: models.Kullanici = Depends(require_role(["yonetici"])),
@@ -1295,7 +1326,9 @@ async def list_admin_kurallar(
     return result.scalars().all()
 
 
-@app.post("/api/admin/kurallar", response_model=schemas.AnomaliKuraliResponse, tags=["Yönetici - Eşik & Kural Yönetimi"])
+@app.post(
+    "/api/admin/kurallar", response_model=schemas.AnomaliKuraliResponse, tags=["Yönetici - Eşik & Kural Yönetimi"]
+)
 async def create_admin_kural(
     kural_data: schemas.AnomaliKuraliCreate,
     db: AsyncSession = Depends(get_db),
@@ -1327,7 +1360,9 @@ async def create_admin_kural(
     return db_kural
 
 
-@app.put("/api/admin/kurallar/{id}", response_model=schemas.AnomaliKuraliResponse, tags=["Yönetici - Eşik & Kural Yönetimi"])
+@app.put(
+    "/api/admin/kurallar/{id}", response_model=schemas.AnomaliKuraliResponse, tags=["Yönetici - Eşik & Kural Yönetimi"]
+)
 async def update_admin_kural(
     id: int,
     kural_data: schemas.AnomaliKuraliUpdate,
@@ -1369,4 +1404,3 @@ async def update_admin_kural(
         detay=f"Kural güncellendi: {db_kural.kural_adi} (id={id})",
     )
     return db_kural
-
