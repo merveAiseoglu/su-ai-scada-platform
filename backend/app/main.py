@@ -1,4 +1,5 @@
 # app/main.py  —  Su-AI API v4.0  (Asenkron LLM + BackgroundTasks)
+import calendar
 import datetime as _dt
 import os
 import random
@@ -6,9 +7,8 @@ from contextlib import asynccontextmanager
 from datetime import timedelta
 from typing import List
 
-import calendar
 import jwt
-from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Request, Response, Query
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
 from prometheus_fastapi_instrumentator import Instrumentator, metrics
@@ -208,7 +208,7 @@ async def get_monthly_report(
 ):
     if month is None:
         month = _dt.datetime.now().strftime("%Y-%m")
-        
+
     try:
         year_str, month_str = month.split("-")
         year_int, month_int = int(year_str), int(month_str)
@@ -216,17 +216,17 @@ async def get_monthly_report(
         _, last_day = calendar.monthrange(year_int, month_int)
         start_date = _dt.datetime(year_int, month_int, 1)
         end_date = _dt.datetime(year_int, month_int, last_day, 23, 59, 59)
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid month format. Use YYYY-MM")
-        
+    except ValueError as err:
+        raise HTTPException(status_code=400, detail="Invalid month format. Use YYYY-MM") from err
+
     from sqlalchemy import func
-    
+
     stations_result = await db.execute(select(models.Istasyon).filter(models.Istasyon.organization_id == current_user.organization_id))
     stations = stations_result.scalars().all()
     station_ids = [st.id for st in stations]
     if not station_ids:
         return Response(content=b"", media_type="application/pdf")
-    
+
     stmt_total = (
         select(models.SuOlcumu.istasyon_id, func.count(models.SuOlcumu.id))
         .filter(models.SuOlcumu.istasyon_id.in_(station_ids))
@@ -236,7 +236,7 @@ async def get_monthly_report(
     )
     res_total = await db.execute(stmt_total)
     totals_map = dict(res_total.all())
-    
+
     stmt_anom = (
         select(models.SuOlcumu.istasyon_id, func.count(models.SuOlcumu.id))
         .filter(models.SuOlcumu.istasyon_id.in_(station_ids))
@@ -247,7 +247,7 @@ async def get_monthly_report(
     )
     res_anom = await db.execute(stmt_anom)
     anoms_map = dict(res_anom.all())
-    
+
     station_stats = []
     for st in stations:
         t_count = totals_map.get(st.id, 0)
@@ -260,7 +260,7 @@ async def get_monthly_report(
                 "anomaly_count": a_count,
                 "anomaly_rate": rate
             })
-            
+
     stmt_judge = (
         select(func.avg(models.AnalizMetrikleri.uygunluk_puani))
         .join(models.SuOlcumu, models.AnalizMetrikleri.olcum_id == models.SuOlcumu.id)
@@ -272,9 +272,9 @@ async def get_monthly_report(
     judge_score_avg = res_judge.scalar()
     if judge_score_avg is not None:
         judge_score_avg = float(judge_score_avg)
-        
+
     pdf_bytes = generate_monthly_pdf_report(month, station_stats, judge_score_avg)
-    
+
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
@@ -434,8 +434,8 @@ async def logout(token: str = Depends(oauth2_scheme), db: AsyncSession = Depends
     except IntegrityError:
         # Token is already blacklisted
         await db.rollback()
-    except jwt.PyJWTError:
-        raise HTTPException(status_code=401, detail="Geçersiz token")
+    except jwt.PyJWTError as err:
+        raise HTTPException(status_code=401, detail="Geçersiz token") from err
     return {"mesaj": "Başarıyla çıkış yapıldı"}
 
 
@@ -1130,10 +1130,10 @@ async def create_organization(
     try:
         await db.commit()
         await db.refresh(db_org)
-    except Exception as e:
+    except Exception as err:
         await db.rollback()
-        raise HTTPException(status_code=400, detail="Organizasyon oluşturulamadı. Aynı isimde organizasyon olabilir.")
-        
+        raise HTTPException(status_code=400, detail="Organizasyon oluşturulamadı. Aynı isimde organizasyon olabilir.") from err
+
     await log_audit(db, kullanici_id=current_user.id, islem_tipi="ORG_OLUSTURULDU", detay=f"Yeni organizasyon eklendi: {org_data.name}")
     return db_org
 
@@ -1147,14 +1147,15 @@ async def add_user_to_organization(
     """
     Organizasyona yeni bir kullanıcı ekler.
     """
-    from app.auth import get_password_hash
     import uuid
+
+    from app.auth import get_password_hash
 
     # Organizasyon var mı kontrol et
     try:
         parsed_uuid = uuid.UUID(org_id)
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Geçersiz organizasyon ID")
+    except ValueError as err:
+        raise HTTPException(status_code=400, detail="Geçersiz organizasyon ID") from err
 
     result = await db.execute(select(models.Organization).filter(models.Organization.id == parsed_uuid))
     org = result.scalars().first()
@@ -1172,9 +1173,9 @@ async def add_user_to_organization(
     try:
         await db.commit()
         await db.refresh(db_user)
-    except Exception as e:
+    except Exception as err:
         await db.rollback()
-        raise HTTPException(status_code=400, detail="Kullanıcı oluşturulamadı. E-posta adresi kullanımda olabilir.")
+        raise HTTPException(status_code=400, detail="Kullanıcı oluşturulamadı. E-posta adresi kullanımda olabilir.") from err
 
     await log_audit(db, kullanici_id=current_user.id, islem_tipi="USER_EKLENDI", detay=f"Organizasyona ({org_id}) yeni kullanıcı eklendi: {user_data.email}")
     return db_user

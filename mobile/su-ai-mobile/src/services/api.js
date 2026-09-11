@@ -7,7 +7,7 @@ import Constants from 'expo-constants';
 export const API_URL =
   Constants?.expoConfig?.extra?.apiBaseUrl ||
   Constants?.manifest?.extra?.apiBaseUrl ||
-  "http://192.168.1.104:8080";
+  "https://su-ai-scada-platform.onrender.com";
 
 const BASE_URL = API_URL;
 

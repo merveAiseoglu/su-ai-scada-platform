@@ -1,10 +1,12 @@
 import uuid
+
 from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint, Uuid
 from sqlalchemy.orm import validates
 from sqlalchemy.sql import func
 
 from app.database import Base
 from app.validators import kural_mantigi_gecerli_mi
+
 
 class Organization(Base):
     __tablename__ = "organizations"

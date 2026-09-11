@@ -1,12 +1,12 @@
 import asyncio
+import logging
 from typing import Set
 
 # A global set to store strong references to background tasks.
-# This prevents Python's garbage collector from destroying the tasks 
+# This prevents Python's garbage collector from destroying the tasks
 # before they finish, which can happen if no strong reference is kept.
 _background_tasks: Set[asyncio.Task] = set()
 
-import logging
 logger = logging.getLogger(__name__)
 
 def _handle_task_result(task: asyncio.Task) -> None:

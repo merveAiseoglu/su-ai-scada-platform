@@ -41,7 +41,7 @@
       "expo-sqlite"
     ],
     "extra": {
-      "apiBaseUrl": "http://192.168.1.104:8080"
+      "apiBaseUrl": "https://su-ai-scada-platform.onrender.com"
     }
   }
 }

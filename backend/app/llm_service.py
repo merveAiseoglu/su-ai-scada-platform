@@ -8,6 +8,7 @@ sonucunu saha personelinin anlayacağı teknik bir aksiyon planına
 çevirmektir. LLM bir "narratör"dür, karar veren değil.
 """
 
+import asyncio
 import logging
 import os
 import time
@@ -27,8 +28,6 @@ logger = logging.getLogger(__name__)
 
 cloud_client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY", "dummy"), timeout=15.0)
 local_client = AsyncOpenAI(base_url="http://ollama:11434/v1", api_key="ollama", max_retries=0, timeout=90.0)
-
-import asyncio
 
 _llm_semaphore = None
 

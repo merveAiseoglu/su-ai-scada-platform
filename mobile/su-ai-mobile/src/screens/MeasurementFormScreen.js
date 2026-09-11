@@ -71,7 +71,7 @@ export default function MeasurementFormScreen({ navigation, route }) {
   const [gonderiyor, setGonderiyor] = useState(false);
 
   const degerGuncelle = (key, value) => {
-    // Virgülü noktaya çevir (Türk klavye düzeni)
+    // Virgülü noktaya çevir
     const temiz = value.replace(",", ".");
     setDegerler((prev) => ({ ...prev, [key]: temiz }));
   };
@@ -244,7 +244,7 @@ export default function MeasurementFormScreen({ navigation, route }) {
 
           {!isOnline && (
             <View style={styles.offlineUyari}>
-              <MaterialCommunityIcons name="wifi-strength-off-outline" size={24} color="#856404" style={{marginRight: 8}} />
+              <MaterialCommunityIcons name="wifi-strength-off-outline" size={24} color="#856404" style={{ marginRight: 8 }} />
               <Text style={styles.offlineUyariText}>
                 Çevrimdışı mod aktif. Ölçüm yerel veritabanına kaydedilecek
                 ve internete bağlandığınızda otomatik gönderilecektir.
