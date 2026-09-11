@@ -10,23 +10,51 @@ Unlike a traditional SCADA system that only fires threshold alarms, Su-AI explai
 
 ## Architecture
 
-```
-IoT Sensors (Stations/Nodes)
-        │  publishes to su-ai/stations/+/measurements
-        ▼
-Eclipse Mosquitto (MQTT Broker)
-        │  subscribes and processes
-        ▼
-React Native App (Field Personnel/Admin) ──HTTP/REST──▶ FastAPI Backend (Core API, Rule Engine)
-                                                              │
-                    ┌─────────────────────────────────────────┼─────────────────────────────┐
-                    ▼                                         ▼                             ▼
-          Hybrid LLM Layer                           Data Layer (SQLAlchemy AsyncPG)   Monitoring & Observability
-   ┌────────────────┴────────────────┐        ┌──────────────┴──────────────┐        ┌──────┴───────┐
-   │                                  │        │                             │        │              │
-OpenAI API                    Ollama - Local   PostgreSQL              ChromaDB      Prometheus ──▶ Grafana
-(gpt-4o-mini, primary)   (llama3.2:1b, fallback if cloud fails)   (Organizations,   (Vector DB,
-                                                                   Stations, etc.)   semantic search)
+```mermaid
+flowchart TD
+    classDef frontend fill:#3b82f6,stroke:#1e40af,stroke-width:2px,color:white;
+    classDef backend fill:#10b981,stroke:#047857,stroke-width:2px,color:white;
+    classDef database fill:#f59e0b,stroke:#b45309,stroke-width:2px,color:white;
+    classDef ai fill:#8b5cf6,stroke:#5b21b6,stroke-width:2px,color:white;
+    classDef broker fill:#ef4444,stroke:#b91c1c,stroke-width:2px,color:white;
+    classDef metrics fill:#f43f5e,stroke:#be123c,stroke-width:2px,color:white;
+    classDef external fill:#6b7280,stroke:#374151,stroke-width:2px,color:white;
+
+    Mobile["React Native App<br/>(Field Personnel/Admin)"]:::frontend
+    Sensors["IoT Sensors<br/>(Stations/Nodes)"]:::external
+
+    subgraph Su_AI_System [Su-AI System Architecture - Docker Compose]
+        MQTT["Eclipse Mosquitto<br/>(MQTT Broker)"]:::broker
+        FastAPI["FastAPI Backend<br/>(Core API, Rule Engine)"]:::backend
+
+        subgraph Data_Storage [Data Layer]
+            Postgres[("PostgreSQL<br/>(Organization, Istasyon, SuOlcumu)")]:::database
+            Chroma[("ChromaDB<br/>(Vector DB, RAG Memory)")]:::database
+        end
+
+        subgraph AI_Layer [Hybrid LLM Layer]
+            Ollama["Ollama - Local<br/>(llama3.2:1b Edge Fallback)"]:::ai
+            OpenAI["OpenAI API<br/>(gpt-4o-mini Primary)"]:::ai
+        end
+
+        subgraph Observability [Monitoring and Observability]
+            Prometheus["Prometheus<br/>(Metrics Scraper)"]:::metrics
+            Grafana["Grafana<br/>(Dashboards)"]:::metrics
+        end
+    end
+
+    Mobile <==>|HTTP/REST API| FastAPI
+    Sensors ==>|"Publishes to su-ai/stations/+/measurements"| MQTT
+    MQTT ==>|Subscribes and processes| FastAPI
+
+    FastAPI <==>|SQLAlchemy AsyncPG| Postgres
+    FastAPI <==>|Semantic Search / Embeddings| Chroma
+
+    FastAPI ==>|Prompt and RAG Context| OpenAI
+    FastAPI -.->|Fallback if cloud fails| Ollama
+
+    Prometheus ==>|Scrapes /metrics| FastAPI
+    Grafana <==>|Queries metrics| Prometheus
 ```
 
 ### Components
